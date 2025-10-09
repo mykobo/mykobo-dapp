@@ -91,3 +91,5 @@ poetry.lock
 # Node modules (if any frontend)
 node_modules/
 .envrc
+package-lock.json
+wallet-connect/static/

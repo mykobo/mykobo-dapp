@@ -13,11 +13,7 @@ def create_app(env):
 
     configuration = CONFIG_MAP[env]
     app.config.from_object(configuration)
-
     app.register_blueprint(common_bp)
-
-    debug_mode = app.config["DEBUG"]
-
     return app
 
 
