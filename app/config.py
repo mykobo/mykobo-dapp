@@ -18,6 +18,11 @@ class Config(object):
     IBAN = os.environ.get("IBAN")
     TRANSACTION_TOPIC = os.environ.get("TRANSACTION_TOPIC")
 
+    # Solana configuration
+    SOLANA_RPC_URL = os.environ.get("SOLANA_RPC_URL", "https://api.mainnet-beta.solana.com")
+    SOLANA_DISTRIBUTION_PRIVATE_KEY = os.environ.get("SOLANA_DISTRIBUTION_PRIVATE_KEY")
+    USDC_TOKEN_MINT = os.environ.get("USDC_TOKEN_MINT", "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v")  # USDC mainnet mint
+
 class Development(Config):
     LOGLEVEL = os.environ.get("LOGLEVEL", "DEBUG")
     DEBUG = True

@@ -3,6 +3,13 @@ import { Buffer } from 'buffer'
 
 import './style.css'
 import { config } from './wagmi'
+import {
+  authenticateWallet,
+  isAuthenticated,
+  logout,
+  clearAuthToken,
+  AuthError,
+} from './auth'
 
 // @ts-ignore
 globalThis.Buffer = Buffer
@@ -19,6 +26,12 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
         <br />
         chainId:
       </div>
+    </div>
+
+    <div id="auth">
+      <h2>Authentication</h2>
+      <div id="auth-status">Not authenticated</div>
+      <div id="auth-error" style="color: red;"></div>
     </div>
 
     <div id="connect">
@@ -79,12 +92,99 @@ function setupApp(element: HTMLDivElement) {
 
       const disconnectButton =
         element.querySelector<HTMLButtonElement>('#disconnect')
-      if (disconnectButton)
-        disconnectButton.addEventListener('click', () => disconnect(config))
+      if (disconnectButton) {
+        disconnectButton.addEventListener('click', () => {
+          disconnect(config)
+          logout()
+          updateAuthStatus(element, false)
+        })
+      }
+
+      // Trigger authentication when wallet connects
+      if (account.status === 'connected' && account.addresses?.[0]) {
+        handleAuthentication(element, account.addresses[0])
+      } else {
+        // Clear auth when disconnected
+        updateAuthStatus(element, false)
+      }
     },
   })
 
   reconnect(config)
     .then(() => {})
     .catch(() => {})
+}
+
+/**
+ * Handle authentication after wallet connection
+ */
+async function handleAuthentication(
+  element: HTMLDivElement,
+  walletAddress: `0x${string}`
+) {
+  const authStatusElement = element.querySelector<HTMLDivElement>('#auth-status')!
+  const authErrorElement = element.querySelector<HTMLDivElement>('#auth-error')!
+
+  try {
+    // Clear any previous errors
+    authErrorElement.innerText = ''
+
+    // Check if already authenticated
+    if (isAuthenticated()) {
+      updateAuthStatus(element, true)
+      return
+    }
+
+    // Show authenticating status
+    authStatusElement.innerText = 'Authenticating...'
+
+    // Perform authentication
+    await authenticateWallet(walletAddress)
+
+    // Update UI
+    updateAuthStatus(element, true)
+  } catch (error) {
+    console.error('Authentication error:', error)
+
+    if (error instanceof AuthError) {
+      authErrorElement.innerText = `Authentication failed: ${error.message}`
+    } else {
+      authErrorElement.innerText = `Authentication failed: ${(error as Error).message}`
+    }
+
+    updateAuthStatus(element, false, 'Failed')
+  }
+}
+
+/**
+ * Update authentication status in UI
+ */
+function updateAuthStatus(
+  element: HTMLDivElement,
+  authenticated: boolean,
+  customStatus?: string
+) {
+  const authStatusElement = element.querySelector<HTMLDivElement>('#auth-status')!
+  const authErrorElement = element.querySelector<HTMLDivElement>('#auth-error')!
+
+  if (authenticated) {
+    authStatusElement.innerHTML = `
+      ✓ Authenticated
+      <br />
+      <button id="logout-btn" type="button" style="margin-top: 10px;">Logout</button>
+    `
+    authErrorElement.innerText = ''
+
+    // Add logout handler
+    const logoutBtn = element.querySelector<HTMLButtonElement>('#logout-btn')
+    if (logoutBtn) {
+      logoutBtn.addEventListener('click', () => {
+        logout()
+        clearAuthToken()
+        updateAuthStatus(element, false)
+      })
+    }
+  } else {
+    authStatusElement.innerText = customStatus || 'Not authenticated'
+  }
 }
