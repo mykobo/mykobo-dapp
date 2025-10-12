@@ -50,9 +50,9 @@ fi
 JS_FILENAME=$(basename "$SCRIPT_PATH")
 
 if [ $DRY_RUN -eq 1 ]; then
-    echo "[DRY RUN] Would replace 'REPLACE_ME' with 'js/$JS_FILENAME' in $BASE_HTML"
+    echo "[DRY RUN] Would replace path after 'filename=' with 'js/$JS_FILENAME' in $BASE_HTML"
 else
-    # Replace REPLACE_ME with js/filename in base.html
-    sed -i'' -e "s|REPLACE_ME|js/$JS_FILENAME|g" "$BASE_HTML"
-    echo "Replaced 'REPLACE_ME' with 'js/$JS_FILENAME' in $BASE_HTML"
+    # Replace the path after filename= in base.html
+    sed -i'' -e "s|filename=['\"]js/[^'\"]*['\"]|filename='js/$JS_FILENAME'|g" "$BASE_HTML"
+    echo "Replaced path after 'filename=' with 'js/$JS_FILENAME' in $BASE_HTML"
 fi

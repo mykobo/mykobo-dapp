@@ -37,7 +37,7 @@ npm run dev
 When a user connects their wallet, the following happens automatically:
 
 ### 1. Wallet Connection
-User clicks a connector button (WalletConnect, BaseAccount, etc.)
+User clicks a connector button (WalletConnect, BaseAccount, Solana wallets, etc.)
 
 ### 2. Request Challenge
 ```typescript
@@ -87,6 +87,25 @@ POST /auth/auth/verify
 
 ### 5. Store Token
 The JWT token is stored in `localStorage` and automatically included in all authenticated API requests.
+
+### 6. Redirect to Lobby
+After successful authentication, the application makes a `fetch` request to `/user/lobby` with the JWT token sent as an `Authorization: Bearer` header:
+```typescript
+fetch('/user/lobby', {
+  method: 'GET',
+  headers: {
+    'Authorization': `Bearer ${token}`,
+    'Content-Type': 'application/json',
+  },
+  credentials: 'include'
+})
+```
+
+The backend response can be:
+- **HTML**: The page is replaced with the lobby HTML content
+- **JSON**: The user is navigated to `/user/lobby`
+
+This happens after a 1-second delay to show the success message to the user.
 
 ## Usage
 

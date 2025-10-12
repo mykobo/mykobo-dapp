@@ -93,3 +93,5 @@ node_modules/
 .envrc
 package-lock.json
 wallet-connect/static/
+/app/static/css/
+/app/static/js/

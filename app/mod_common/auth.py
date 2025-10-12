@@ -10,6 +10,7 @@ from nacl.encoding import Base64Encoder
 import base64
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+import base58
 
 limiter = Limiter(
     key_func=get_remote_address,
@@ -55,7 +56,7 @@ def verify_wallet_signature(
         nonce: str
 ) -> tuple[bool, Optional[str]]:
     """
-    Verify a Solana wallet signature.
+    Verify wallet signature (supports both Ethereum and Solana).
 
     Returns:
         (is_valid, error_message)
@@ -83,12 +84,30 @@ def verify_wallet_signature(
         # Reconstruct the message that was signed
         message = f"Sign this message to authenticate with MYKOBO DAPP.\n\nNonce: {nonce}\nTimestamp: {nonce_data['expires_at'] - 300}"
 
-        # Verify signature using ed25519
-        verify_key = VerifyKey(wallet_address.encode("utf-8"), encoder=Base64Encoder)
-        verify_key.verify(
-            message.encode('utf-8'),
-            base64.b64decode(signature)
-        )
+        # Detect wallet type based on address format
+        is_solana = not wallet_address.startswith('0x')
+
+        if is_solana:
+            # Solana address: base58 encoded, need to decode to get 32-byte public key
+            try:
+                public_key_bytes = base58.b58decode(wallet_address)
+                if len(public_key_bytes) != 32:
+                    return False, f"Invalid Solana public key length: {len(public_key_bytes)} bytes"
+
+                verify_key = VerifyKey(public_key_bytes)
+                verify_key.verify(
+                    message.encode('utf-8'),
+                    base64.b64decode(signature)
+                )
+            except Exception as e:
+                return False, f"Solana signature verification failed: {str(e)}"
+        else:
+            # Ethereum address: use Base64Encoder for the address
+            verify_key = VerifyKey(wallet_address.encode("utf-8"), encoder=Base64Encoder)
+            verify_key.verify(
+                message.encode('utf-8'),
+                base64.b64decode(signature)
+            )
 
         # Mark nonce as used
         nonce_store[nonce]['used'] = True

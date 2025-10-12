@@ -14,10 +14,11 @@ from spl.token.instructions import (
     TransferCheckedParams,
 )
 from spl.token.constants import TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID
-from flask import current_app
+from flask import current_app, Blueprint
 
 from app.decorators import require_wallet_auth
 
+transaction_bp = Blueprint("transaction", __name__)
 
 @require_wallet_auth
 def create_transaction(

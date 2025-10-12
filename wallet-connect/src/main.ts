@@ -5,11 +5,20 @@ import './style.css'
 import { config } from './wagmi'
 import {
   authenticateWallet,
+  authenticateWalletUniversal,
   isAuthenticated,
   logout,
   clearAuthToken,
   AuthError,
+  redirectToLobby,
+  getAuthToken,
 } from './auth'
+import {
+  solanaWallets,
+  connectSolanaWallet,
+  disconnectSolanaWallet,
+  setupSolanaWalletListeners,
+} from './solana'
 
 // @ts-ignore
 globalThis.Buffer = Buffer
@@ -35,11 +44,21 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
     </div>
 
     <div id="connect">
-      <h2>Connect</h2>
+      <h2>Connect Ethereum Wallet</h2>
       ${config.connectors
         .map(
           (connector) =>
             `<button class="connect" id="${connector.uid}" type="button">${connector.name}</button>`,
+        )
+        .join('')}
+    </div>
+
+    <div id="solana-connect" style="margin-top: 20px;">
+      <h2>Connect Solana Wallet</h2>
+      ${solanaWallets
+        .map(
+          (wallet) =>
+            `<button class="solana-connect" id="${wallet.name}" type="button">${wallet.name}</button>`,
         )
         .join('')}
     </div>
@@ -49,6 +68,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
 setupApp(document.querySelector<HTMLDivElement>('#app')!)
 
 function setupApp(element: HTMLDivElement) {
+  // Ethereum wallet connection
   const connectElement = element.querySelector<HTMLDivElement>('#connect')
   const buttons = element.querySelectorAll<HTMLButtonElement>('.connect')
   for (const button of buttons) {
@@ -65,6 +85,51 @@ function setupApp(element: HTMLDivElement) {
         errorElement.id = 'error'
         errorElement.innerText = (error as Error).message
         connectElement?.appendChild(errorElement)
+      }
+    })
+  }
+
+  // Solana wallet connection
+  const solanaConnectElement = element.querySelector<HTMLDivElement>('#solana-connect')
+  const solanaButtons = element.querySelectorAll<HTMLButtonElement>('.solana-connect')
+  for (const button of solanaButtons) {
+    button.addEventListener('click', async () => {
+      try {
+        const errorElement = element.querySelector<HTMLDivElement>('#solana-error')
+        if (errorElement) errorElement.remove()
+
+        const walletAdapter = solanaWallets.find((w) => w.name === button.id)
+        if (!walletAdapter) {
+          throw new Error('Wallet adapter not found')
+        }
+
+        // Setup listeners
+        setupSolanaWalletListeners(walletAdapter, {
+          onConnect: (publicKey) => {
+            const walletAddress = publicKey.toBase58()
+            updateSolanaAccount(element, walletAddress)
+            handleAuthenticationSolana(element, walletAddress)
+          },
+          onDisconnect: () => {
+            updateSolanaAccount(element, null)
+            logout()
+            updateAuthStatus(element, false)
+          },
+          onError: (error) => {
+            console.error('Solana wallet error:', error)
+          },
+        })
+
+        // Connect to wallet
+        const walletAddress = await connectSolanaWallet(walletAdapter)
+        updateSolanaAccount(element, walletAddress)
+        await handleAuthenticationSolana(element, walletAddress)
+      } catch (error) {
+        const errorElement = document.createElement('div')
+        errorElement.id = 'solana-error'
+        errorElement.style.color = 'red'
+        errorElement.innerText = `Solana error: ${(error as Error).message}`
+        solanaConnectElement?.appendChild(errorElement)
       }
     })
   }
@@ -131,7 +196,11 @@ async function handleAuthentication(
 
     // Check if already authenticated
     if (isAuthenticated()) {
-      updateAuthStatus(element, true)
+      const token = getAuthToken()
+      if (token) {
+        authStatusElement.innerText = 'Redirecting to lobby...'
+        await redirectToLobby(token)
+      }
       return
     }
 
@@ -139,10 +208,16 @@ async function handleAuthentication(
     authStatusElement.innerText = 'Authenticating...'
 
     // Perform authentication
-    await authenticateWallet(walletAddress)
+    const token = await authenticateWallet(walletAddress)
 
-    // Update UI
-    updateAuthStatus(element, true)
+    // Show success message briefly
+    authStatusElement.innerText = '✓ Authentication successful! Redirecting...'
+
+    // Wait 1 second to show success message, then redirect
+    await new Promise(resolve => setTimeout(resolve, 1000))
+
+    // Redirect to lobby with token
+    await redirectToLobby(token)
   } catch (error) {
     console.error('Authentication error:', error)
 
@@ -186,5 +261,94 @@ function updateAuthStatus(
     }
   } else {
     authStatusElement.innerText = customStatus || 'Not authenticated'
+  }
+}
+
+/**
+ * Handle Solana wallet authentication
+ */
+async function handleAuthenticationSolana(
+  element: HTMLDivElement,
+  walletAddress: string
+) {
+  const authStatusElement = element.querySelector<HTMLDivElement>('#auth-status')!
+  const authErrorElement = element.querySelector<HTMLDivElement>('#auth-error')!
+
+  try {
+    authErrorElement.innerText = ''
+
+    // Check if already authenticated
+    if (isAuthenticated()) {
+      const token = getAuthToken()
+      if (token) {
+        authStatusElement.innerText = 'Redirecting to lobby...'
+        await redirectToLobby(token)
+      }
+      return
+    }
+
+    authStatusElement.innerText = 'Authenticating Solana wallet...'
+
+    // Perform Solana authentication
+    const token = await authenticateWalletUniversal(walletAddress, 'solana')
+
+    // Show success message briefly
+    authStatusElement.innerText = '✓ Authentication successful! Redirecting...'
+
+    // Wait 1 second to show success message, then redirect
+    await new Promise(resolve => setTimeout(resolve, 1000))
+
+    // Redirect to lobby with token
+    await redirectToLobby(token)
+  } catch (error) {
+    console.error('Solana authentication error:', error)
+
+    if (error instanceof AuthError) {
+      authErrorElement.innerText = `Authentication failed: ${error.message}`
+    } else {
+      authErrorElement.innerText = `Authentication failed: ${(error as Error).message}`
+    }
+
+    updateAuthStatus(element, false, 'Failed')
+  }
+}
+
+/**
+ * Update Solana account display
+ */
+function updateSolanaAccount(
+  element: HTMLDivElement,
+  walletAddress: string | null
+) {
+  const accountElement = element.querySelector<HTMLDivElement>('#account')!
+
+  if (walletAddress) {
+    accountElement.innerHTML = `
+      <h2>Solana Account</h2>
+      <div>
+        status: connected
+        <br />
+        address: ${walletAddress}
+        <br />
+        <button id="disconnect-solana" type="button">Disconnect</button>
+      </div>
+    `
+
+    const disconnectButton = element.querySelector<HTMLButtonElement>('#disconnect-solana')
+    if (disconnectButton) {
+      disconnectButton.addEventListener('click', async () => {
+        await disconnectSolanaWallet()
+        updateSolanaAccount(element, null)
+        logout()
+        updateAuthStatus(element, false)
+      })
+    }
+  } else {
+    accountElement.innerHTML = `
+      <h2>Account</h2>
+      <div>
+        status: disconnected
+      </div>
+    `
   }
 }

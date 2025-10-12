@@ -9,9 +9,13 @@
 
 import { signMessage } from '@wagmi/core'
 import { config } from './wagmi'
+import { signSolanaMessage } from './solana'
 
 // API configuration
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
+
+// Wallet types
+export type WalletType = 'ethereum' | 'solana'
 
 // Storage keys
 const AUTH_TOKEN_KEY = 'mykobo_auth_token'
@@ -90,7 +94,7 @@ export async function requestChallenge(walletAddress: string): Promise<Challenge
 }
 
 /**
- * Sign a message using the connected wallet
+ * Sign a message using the connected Ethereum wallet
  *
  * @param message - The message to sign
  * @param address - The wallet address
@@ -116,29 +120,68 @@ export async function signAuthMessage(
 }
 
 /**
+ * Sign a message with the appropriate wallet type
+ *
+ * @param message - The message to sign
+ * @param address - The wallet address
+ * @param walletType - Type of wallet (ethereum or solana)
+ * @returns Signature (base64 for Solana, hex for Ethereum)
+ * @throws AuthError if signing fails
+ */
+export async function signMessageForWalletType(
+  message: string,
+  address: string,
+  walletType: WalletType
+): Promise<string> {
+  try {
+    if (walletType === 'solana') {
+      // Solana returns base64 signature directly
+      return await signSolanaMessage(message)
+    } else {
+      // Ethereum
+      return await signAuthMessage(message, address as `0x${string}`)
+    }
+  } catch (error) {
+    throw new AuthError(
+      `Failed to sign message: ${(error as Error).message}`,
+      'SIGNING_FAILED'
+    )
+  }
+}
+
+/**
  * Verify the signed message with the backend and receive JWT token
  *
  * @param walletAddress - The wallet address
- * @param signature - The signature hex string
+ * @param signature - The signature (hex for Ethereum, base64 for Solana)
  * @param nonce - The nonce from the challenge
+ * @param walletType - Type of wallet (ethereum or solana)
  * @returns Verification response with JWT token
  * @throws AuthError if verification fails
  */
 export async function verifySignature(
   walletAddress: string,
   signature: string,
-  nonce: string
+  nonce: string,
+  walletType: WalletType = 'ethereum'
 ): Promise<VerificationResponse> {
   try {
-    // Convert signature to base64 for backend
-    const signatureBytes = signature.startsWith('0x')
-      ? signature.slice(2)
-      : signature
-    const signatureBase64 = btoa(
-      signatureBytes.match(/.{1,2}/g)!.map(byte =>
-        String.fromCharCode(parseInt(byte, 16))
-      ).join('')
-    )
+    let signatureBase64: string
+
+    if (walletType === 'solana') {
+      // Solana signature is already in base64
+      signatureBase64 = signature
+    } else {
+      // Convert Ethereum hex signature to base64
+      const signatureBytes = signature.startsWith('0x')
+        ? signature.slice(2)
+        : signature
+      signatureBase64 = btoa(
+        signatureBytes.match(/.{1,2}/g)!.map(byte =>
+          String.fromCharCode(parseInt(byte, 16))
+        ).join('')
+      )
+    }
 
     const response = await fetch(`${API_BASE_URL}/auth/auth/verify`, {
       method: 'POST',
@@ -172,7 +215,7 @@ export async function verifySignature(
 }
 
 /**
- * Complete authentication flow:
+ * Complete authentication flow (Ethereum-only):
  * 1. Request challenge
  * 2. Sign challenge
  * 3. Verify signature
@@ -200,7 +243,58 @@ export async function authenticateWallet(
     const verification = await verifySignature(
       walletAddress,
       signature,
-      challenge.nonce
+      challenge.nonce,
+      'ethereum'
+    )
+    console.log('Authentication successful')
+
+    // Step 4: Store token and wallet address
+    storeAuthToken(verification.token, walletAddress)
+
+    return verification.token
+  } catch (error) {
+    console.error('Authentication failed:', error)
+    throw error
+  }
+}
+
+/**
+ * Universal authentication flow supporting both Ethereum and Solana:
+ * 1. Request challenge
+ * 2. Sign challenge with appropriate wallet
+ * 3. Verify signature
+ * 4. Store JWT token
+ *
+ * @param walletAddress - The wallet address to authenticate
+ * @param walletType - Type of wallet (ethereum or solana)
+ * @returns JWT token
+ * @throws AuthError if any step fails
+ */
+export async function authenticateWalletUniversal(
+  walletAddress: string,
+  walletType: WalletType
+): Promise<string> {
+  try {
+    console.log(`Starting ${walletType} authentication for wallet: ${walletAddress}`)
+
+    // Step 1: Request challenge
+    const challenge = await requestChallenge(walletAddress)
+    console.log('Challenge received:', challenge.nonce)
+
+    // Step 2: Sign the challenge message with appropriate wallet
+    const signature = await signMessageForWalletType(
+      challenge.message,
+      walletAddress,
+      walletType
+    )
+    console.log('Message signed: ' + signature + ' wallet type: ', walletType)
+
+    // Step 3: Verify signature and get JWT
+    const verification = await verifySignature(
+      walletAddress,
+      signature,
+      challenge.nonce,
+      walletType
     )
     console.log('Authentication successful')
 
@@ -302,4 +396,53 @@ export async function authenticatedFetch(
 export function logout(): void {
   clearAuthToken()
   console.log('Logged out')
+}
+
+/**
+ * Redirect to lobby with auth token via fetch request
+ * Sends token as Authorization Bearer header
+ *
+ * @param token - JWT token to send as Authorization header
+ */
+export async function redirectToLobby(token: string): Promise<void> {
+  try {
+    const lobbyUrl = `${API_BASE_URL}/user/lobby`
+    console.log('Fetching lobby with Authorization header:', lobbyUrl)
+
+    // Make authenticated request to lobby endpoint
+    const response = await fetch(lobbyUrl, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+    })
+
+    if (!response.ok) {
+      throw new Error(`Lobby request failed: ${response.status} ${response.statusText}`)
+    }
+
+    // Check if response is HTML
+    const contentType = response.headers.get('content-type')
+
+    if (contentType?.includes('text/html')) {
+      // Replace document with returned HTML
+      const html = await response.text()
+      document.open()
+      document.write(html)
+      document.close()
+
+      // Update URL without reload
+      window.history.pushState({}, '', '/user/lobby')
+    } else {
+      // For JSON responses, navigate to the lobby URL
+      const data = await response.json()
+      console.log('Lobby response:', data)
+      window.location.href = '/user/lobby'
+    }
+  } catch (error) {
+    console.error('Failed to fetch lobby:', error)
+    throw error
+  }
 }
