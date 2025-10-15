@@ -6,19 +6,23 @@ RUN npm install
 RUN npm run build
 
 
-FROM python:3.13-alpine3.21 AS runtime
+FROM python:3.13-bookworm AS runtime
 
 # Set working directory
 WORKDIR /app
 
-# Install uv
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+# Install Poetry
+RUN pip install --no-cache-dir poetry
+
+# Configure Poetry to not create virtual environments (we'll use the system Python in the container)
+RUN poetry config virtualenvs.create false
 
 # Copy dependency files
-COPY pyproject.toml uv.lock ./
+COPY pyproject.toml ./
 
-# Install dependencies using uv
-RUN uv sync --frozen --no-dev
+# Install dependencies using Poetry (production dependencies only)
+# Using --no-root to avoid installing the project itself since package-mode is false
+RUN poetry install --no-interaction --no-ansi
 
 # Copy application code
 COPY app/ ./app/
@@ -32,7 +36,6 @@ RUN rm ./app/static/index.html
 RUN rm ./app/extract-wagmi-script.sh
 
 # Set environment variables
-ENV PATH="/app/.venv/bin:$PATH"
 ENV PYTHONUNBUFFERED=1
 
 # Expose port (default to 8000, can be overridden)
