@@ -1,0 +1,47 @@
+{% extends "layouts/authenticated.html" %}
+{% block title %} Let's Get Started {% endblock %}
+{% block content %}
+    <div id="app">
+        <div class="app-container lobby-container">
+            <!-- Wallet Info Button -->
+            <button class="wallet-info-button">
+                <span class="wallet-address">{{ wallet_address[:6] }}...{{ wallet_address[-4:] }}</span>
+                <span id="wallet-balance" class="wallet-balance">{{ wallet_balance }}</span>
+            </button>
+
+            <!-- Currency Balance Buttons -->
+            <div class="currency-buttons">
+                <button class="currency-button">
+                    <div class="currency-icon">€</div>
+                    <div class="currency-amount" id="eur-balance">{{ eur_balance }}</div>
+                </button>
+                <button class="currency-button">
+                    <div class="currency-icon">$</div>
+                    <div class="currency-amount" id="usd-balance">{{ usd_balance }}</div>
+                </button>
+                <button class="currency-button">
+                    <div class="currency-icon">$</div>
+                    <div class="currency-amount" id="usdc-balance">{{ usdc_balance }}</div>
+                </button>
+            </div>
+            <form method="POST" action="{{ url_for('user.lobby', wallet_address=wallet_address, token=token) }}"
+                  id="register-form">
+                {{ form.csrf_token }}
+                <!-- Email -->
+
+                <div class="form-group">
+                    <label for="email_address" class="form-label">{{ form.email_address.description }}</label>
+                    {{ form.email_address(class="form-input", id="email_address", placeholder="your.email@example.com", required=True) }}
+                </div>
+
+                <div>
+                    {{ form.token(value=token) }}
+                </div>
+
+                <button type="submit" class="mt-4 action-button primary-button" id="submit-btn">
+                    Continue
+                </button>
+            </form>
+        </div>
+    </div>
+{% endblock %}

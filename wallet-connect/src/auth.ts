@@ -399,50 +399,22 @@ export function logout(): void {
 }
 
 /**
- * Redirect to lobby with auth token via fetch request
- * Sends token as Authorization Bearer header
+ * Navigate to dashboard with auth token
+ * Redirects to backend /user/dashboard route
  *
- * @param token - JWT token to send as Authorization header
+ * @param token - JWT token to append as query parameter
+ * @param _walletAddress - Optional wallet address (unused, kept for compatibility)
  */
-export async function redirectToLobby(token: string): Promise<void> {
+export async function redirectToLobby(token: string, _walletAddress?: string): Promise<void> {
   try {
-    const lobbyUrl = `${API_BASE_URL}/user/lobby`
-    console.log('Fetching lobby with Authorization header:', lobbyUrl)
+    console.log('Redirecting to /user/dashboard with token...')
 
-    // Make authenticated request to lobby endpoint
-    const response = await fetch(lobbyUrl, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      credentials: 'include',
-    })
-
-    if (!response.ok) {
-      throw new Error(`Lobby request failed: ${response.status} ${response.statusText}`)
-    }
-
-    // Check if response is HTML
-    const contentType = response.headers.get('content-type')
-
-    if (contentType?.includes('text/html')) {
-      // Replace document with returned HTML
-      const html = await response.text()
-      document.open()
-      document.write(html)
-      document.close()
-
-      // Update URL without reload
-      window.history.pushState({}, '', '/user/lobby')
-    } else {
-      // For JSON responses, navigate to the lobby URL
-      const data = await response.json()
-      console.log('Lobby response:', data)
-      window.location.href = '/user/lobby'
-    }
+    // Redirect to Flask backend lobby route with token as query parameter
+    // The token is also stored in localStorage for subsequent API calls
+    window.location.href = `${API_BASE_URL}/user/dashboard?token=${encodeURIComponent(token)}`
   } catch (error) {
-    console.error('Failed to fetch lobby:', error)
+    console.error('Failed to redirect to dashboard:', error)
     throw error
   }
 }
+

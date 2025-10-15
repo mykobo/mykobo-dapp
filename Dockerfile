@@ -27,7 +27,7 @@ COPY extract-wagmi-script.sh ./app/
 
 # Copy javascript resources from wallet connect build
 COPY --from=js /js-app/static ./app/static
-RUN ./app/extract-wagmi-script.sh ./app/static/index.html ./app/templates/base.html
+RUN ./app/extract-wagmi-script.sh ./app/static/index.html ./app/templates/layouts/base.html
 RUN rm ./app/static/index.html
 RUN rm ./app/extract-wagmi-script.sh
 

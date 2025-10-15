@@ -14,11 +14,16 @@ from spl.token.instructions import (
     TransferCheckedParams,
 )
 from spl.token.constants import TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID
-from flask import current_app, Blueprint
+from flask import current_app, Blueprint, Response, make_response
 
 from app.decorators import require_wallet_auth
 
-transaction_bp = Blueprint("transaction", __name__)
+bp = Blueprint("transaction", __name__)
+
+@bp.route("/new", methods=["GET", "POST"])
+@require_wallet_auth
+def new() -> Response:
+    return make_response("Transaction Screen", 200)
 
 @require_wallet_auth
 def create_transaction(

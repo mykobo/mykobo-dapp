@@ -1,7 +1,7 @@
 build:
 	cd wallet-connect && npm run build && cd ..
-	cp ./app/templates/base.html ./app/templates/base.html.bak
-	./extract-wagmi-script.sh ./wallet-connect/static/index.html ./app/templates/base.html
+	cp ./app/templates/layouts/base.html ./app/templates/layouts/base.html.bak
+	./extract-wagmi-script.sh ./wallet-connect/static/index.html ./app/templates/layouts/base.html
 	cp -r ./wallet-connect/static/js ./app/static
 	cp -r ./wallet-connect/static/css ./app/static
 

@@ -177,7 +177,7 @@ def verify_signature():
     token = jwt.encode(
         {
             'wallet_address': wallet_address,
-            'exp': datetime.now(UTC) + timedelta(hours=24),
+            'exp': datetime.now(UTC) + timedelta(minutes=30),
             'iat': datetime.now(UTC)
         },
         current_app.config['SECRET_KEY'],
@@ -193,3 +193,22 @@ def verify_signature():
         'wallet_address': wallet_address,
         'expires_in': 86400  # 24 hours
     }), 200
+
+@auth_bp.route('/logout', methods=['POST', 'GET'])
+def logout():
+    """
+    Logout user by clearing session data and redirecting to home.
+    """
+    from flask import redirect, url_for, make_response
+
+    # Clear session data
+    session.clear()
+
+    # Create response with redirect
+    response = make_response(redirect('/'))
+
+    # Clear any cookies
+    response.set_cookie('mykobo_auth_token', '', expires=0)
+    response.set_cookie('mykobo_wallet_address', '', expires=0)
+
+    return response

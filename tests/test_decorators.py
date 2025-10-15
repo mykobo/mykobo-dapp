@@ -289,6 +289,156 @@ class TestRequireWalletAuthDecorator:
             response = client.get('/protected', headers=headers)
             assert response.status_code == 401
 
+    def test_token_from_cookie(self, client, test_blueprint, app):
+        """Test that token can be retrieved from cookies"""
+        token = jwt.encode(
+            {
+                'wallet_address': 'test_wallet_123',
+                'exp': datetime.now(UTC) + timedelta(hours=1),
+                'iat': datetime.now(UTC)
+            },
+            app.config['SECRET_KEY'],
+            algorithm='HS256'
+        )
+
+        # Set cookie
+        client.set_cookie('auth_token', token)
+        response = client.get('/protected')
+
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data['message'] == 'Access granted'
+        assert data['wallet'] == 'test_wallet_123'
+
+    def test_token_from_get_parameter(self, client, test_blueprint, app):
+        """Test that token can be retrieved from GET parameters"""
+        token = jwt.encode(
+            {
+                'wallet_address': 'test_wallet_123',
+                'exp': datetime.now(UTC) + timedelta(hours=1),
+                'iat': datetime.now(UTC)
+            },
+            app.config['SECRET_KEY'],
+            algorithm='HS256'
+        )
+
+        response = client.get(f'/protected?token={token}')
+
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data['message'] == 'Access granted'
+        assert data['wallet'] == 'test_wallet_123'
+
+    def test_token_priority_header_over_cookie(self, client, test_blueprint, app):
+        """Test that header token takes priority over cookie token"""
+        wallet_header = 'wallet_from_header'
+        wallet_cookie = 'wallet_from_cookie'
+
+        token_header = jwt.encode(
+            {
+                'wallet_address': wallet_header,
+                'exp': datetime.now(UTC) + timedelta(hours=1),
+                'iat': datetime.now(UTC)
+            },
+            app.config['SECRET_KEY'],
+            algorithm='HS256'
+        )
+
+        token_cookie = jwt.encode(
+            {
+                'wallet_address': wallet_cookie,
+                'exp': datetime.now(UTC) + timedelta(hours=1),
+                'iat': datetime.now(UTC)
+            },
+            app.config['SECRET_KEY'],
+            algorithm='HS256'
+        )
+
+        # Set cookie
+        client.set_cookie('auth_token', token_cookie)
+
+        # Make request with header
+        response = client.get(
+            '/protected',
+            headers={'Authorization': f'Bearer {token_header}'}
+        )
+
+        assert response.status_code == 200
+        data = response.get_json()
+        # Should use header token, not cookie token
+        assert data['wallet'] == wallet_header
+
+    def test_token_priority_cookie_over_get_param(self, client, test_blueprint, app):
+        """Test that cookie token takes priority over GET parameter token"""
+        wallet_cookie = 'wallet_from_cookie'
+        wallet_param = 'wallet_from_param'
+
+        token_cookie = jwt.encode(
+            {
+                'wallet_address': wallet_cookie,
+                'exp': datetime.now(UTC) + timedelta(hours=1),
+                'iat': datetime.now(UTC)
+            },
+            app.config['SECRET_KEY'],
+            algorithm='HS256'
+        )
+
+        token_param = jwt.encode(
+            {
+                'wallet_address': wallet_param,
+                'exp': datetime.now(UTC) + timedelta(hours=1),
+                'iat': datetime.now(UTC)
+            },
+            app.config['SECRET_KEY'],
+            algorithm='HS256'
+        )
+
+        # Set cookie
+        client.set_cookie('auth_token', token_cookie)
+
+        # Make request with GET parameter
+        response = client.get(f'/protected?token={token_param}')
+
+        assert response.status_code == 200
+        data = response.get_json()
+        # Should use cookie token, not GET parameter token
+        assert data['wallet'] == wallet_cookie
+
+    def test_expired_token_in_cookie_rejected(self, client, test_blueprint, app):
+        """Test that expired token in cookie is rejected"""
+        token = jwt.encode(
+            {
+                'wallet_address': 'test_wallet_123',
+                'exp': datetime.now(UTC) - timedelta(hours=1),
+                'iat': datetime.now(UTC) - timedelta(hours=2)
+            },
+            app.config['SECRET_KEY'],
+            algorithm='HS256'
+        )
+
+        client.set_cookie('auth_token', token)
+        response = client.get('/protected')
+
+        assert response.status_code == 401
+        data = response.get_json()
+        assert data['error'] == 'Token expired'
+
+    def test_invalid_token_in_get_param_rejected(self, client, test_blueprint):
+        """Test that invalid token in GET parameter is rejected"""
+        response = client.get('/protected?token=invalid_token_string')
+
+        assert response.status_code == 401
+        data = response.get_json()
+        assert data['error'] == 'Invalid token'
+
+    def test_no_token_in_any_location(self, client, test_blueprint):
+        """Test that request with no token in any location is rejected"""
+        response = client.get('/protected')
+
+        assert response.status_code == 401
+        data = response.get_json()
+        assert data['error'] == 'No authorization token provided'
+
 
 class TestDecoratorIntegration:
     """Integration tests for decorator with auth flow"""
