@@ -1,0 +1,48 @@
+version: 2.1
+
+orbs:
+  aws-ecr: circleci/aws-ecr@8.2.1
+  slack: circleci/slack@4.12.5
+
+jobs:
+  build-image:
+    machine:
+      image: ubuntu-2204:current
+    steps:
+      - checkout
+      - run:
+          name: Generate env file
+          command: |
+            ./generate_envfile.sh
+      - aws-ecr/build-and-push-image:
+          aws-access-key-id: AWS_ACCESS_KEY
+          aws-cli-version: latest
+          aws-secret-access-key: AWS_SECRET_KEY
+          create-repo: false
+          extra-build-args: "--compress"
+          platform: linux/amd64
+          public-registry: false
+          push-image: true
+          region: ${AWS_REGION}
+          registry-id: ACCOUNT_ID
+          repo: dapp
+          repo-scan-on-push: true
+          skip-when-tags-exist: false
+          tag: $(./image_tag.sh)
+      - slack/notify:
+          event: pass
+          template: basic_success_1
+      - slack/notify:
+          event: fail
+          template: basic_fail_1
+
+workflows:
+  build_and_push_image:
+    when:
+      or:
+        - equal: [main, << pipeline.git.branch >>]
+        - equal: [staging, << pipeline.git.branch >>]
+        - equal: [upgrade, << pipeline.git.branch >>]
+    jobs:
+      - build-image:
+          context: core
