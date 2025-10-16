@@ -7,3 +7,6 @@ build:
 
 run:
 	source .venv/bin/activate && HOSTNAME="127.0.0.1" ENV=development SERVICE_PORT=5001 ./boot.sh
+
+release:
+	semantic-release version --changelog
