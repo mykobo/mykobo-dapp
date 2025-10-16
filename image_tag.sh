@@ -1,9 +1,4 @@
 #!/bin/bash
-
-if [ "${CIRCLE_BRANCH}" != "main" ]
-then
-  export IMAGE_TAG=next
-else
-  export IMAGE_TAG=latest
-fi
+# shellcheck disable=SC2155
+export IMAGE_TAG=$(semantic-release version --print-last-released)
 echo "${IMAGE_TAG}"

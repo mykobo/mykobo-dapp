@@ -11,6 +11,10 @@ jobs:
     steps:
       - checkout
       - run:
+          name: Install Semantic Release
+          command: |
+            sudo python3 -m pip install python-semantic-release
+      - run:
           name: Generate env file
           command: |
             ./generate_envfile.sh
