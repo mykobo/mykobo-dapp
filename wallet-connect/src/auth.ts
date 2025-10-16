@@ -402,16 +402,21 @@ export function logout(): void {
  * Navigate to dashboard with auth token
  * Redirects to backend /user/dashboard route
  *
- * @param token - JWT token to append as query parameter
+ * @param token - JWT token (stored in localStorage, sent via cookie)
  * @param _walletAddress - Optional wallet address (unused, kept for compatibility)
  */
 export async function redirectToLobby(token: string, _walletAddress?: string): Promise<void> {
   try {
-    console.log('Redirecting to /user/dashboard with token...')
+    console.log('Redirecting to /user/dashboard...')
 
-    // Redirect to Flask backend lobby route with token as query parameter
-    // The token is also stored in localStorage for subsequent API calls
-    window.location.href = `${API_BASE_URL}/user/dashboard?token=${encodeURIComponent(token)}`
+    // Set token as a cookie for the backend to read
+    // The token is also stored in localStorage for client-side API calls
+    const isSecure = API_BASE_URL.startsWith('https')
+    const secureFlag = isSecure ? '; secure' : ''
+    document.cookie = `auth_token=${token}; path=/${secureFlag}; samesite=lax`
+
+    // Redirect to Flask backend lobby route without token in URL
+    window.location.href = `${API_BASE_URL}/user/dashboard`
   } catch (error) {
     console.error('Failed to redirect to dashboard:', error)
     throw error

@@ -19,6 +19,7 @@ from flask import current_app, Blueprint, Response, make_response
 from app.decorators import require_wallet_auth
 
 bp = Blueprint("transaction", __name__)
+network = 'solana'
 
 @bp.route("/new", methods=["GET", "POST"])
 @require_wallet_auth

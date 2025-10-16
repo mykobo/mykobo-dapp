@@ -95,3 +95,5 @@ package-lock.json
 wallet-connect/static/
 /app/static/js/
 /app/static/css/index*.css
+/app/templates/layouts/base.html.bak
+/app/templates/layouts/base.html-e

@@ -11,7 +11,6 @@ class EmailForm(FlaskForm):
         validators=[DataRequired(), Email()],
         description="Email address",
     )
-    token = HiddenField("token", validators=[DataRequired()])
 
 
 

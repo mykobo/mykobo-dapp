@@ -15,7 +15,6 @@ network = "solana"
 @bp.route("/dashboard", methods=["GET"])
 @require_wallet_auth
 def dashboard() -> Response:
-    token = request.args.get("token")
     wallet_address = request.wallet_address
     service_token = app.config["IDENTITY_SERVICE_CLIENT"].acquire_token()
 
@@ -54,12 +53,10 @@ def dashboard() -> Response:
                     url_for(
                         "user.kyc",
                         profile_id=user_data.get("id"),
-                        token=request.args.get("token"),
                         network=network
                     )
                 )
 
-            print(user_data)
             return make_response(
                 render_template(
                     'user/dashboard.html',
@@ -75,7 +72,7 @@ def dashboard() -> Response:
         except HTTPError as e:
             app.logger.error("HTTP error: %s", e)
             if e.response.status_code == 404:
-                return redirect(url_for("user.register", wallet_address=wallet_address, token=token))
+                return redirect(url_for("user.register", wallet_address=wallet_address))
     except HTTPError as e:
         if e.response.status_code == 404:
             # Register user first
@@ -83,8 +80,7 @@ def dashboard() -> Response:
                 url_for(
                     "user.lobby",
                     network=network,
-                    wallet_address=wallet_address,
-                    token=token,
+                    wallet_address=wallet_address
                 )
             )
         else:
@@ -97,7 +93,6 @@ def dashboard() -> Response:
 @require_wallet_auth
 def lobby():
     wallet_address = request.wallet_address
-    auth_token = request.args.get("token")
     form = EmailForm()
 
     if request.method == "POST":
@@ -131,8 +126,7 @@ def lobby():
                                 )
                                 return redirect(
                                     url_for(
-                                        f"user.dashboard",
-                                        token=auth_token
+                                        f"user.dashboard"
                                     )
                                 )
                             else:
@@ -142,8 +136,7 @@ def lobby():
                                 return redirect(
                                     url_for(
                                         "user.kyc",
-                                        profile_id=profile_id,
-                                        token=auth_token
+                                        profile_id=profile_id
                                     )
                                 )
                         else:
@@ -178,7 +171,6 @@ def lobby():
                     return redirect(
                         url_for(
                             "user.register",
-                            token=auth_token,
                             email_address=form.email_address.data,
                         )
                     )
@@ -202,7 +194,6 @@ def lobby():
                 render_template(
                     "user/lobby.html",
                     form=form,
-                    token=auth_token,
                     wallet_address = wallet_address
                 ),
                 200,
@@ -213,7 +204,6 @@ def lobby():
             render_template(
                 "user/lobby.html",
                 form=form,
-                token=auth_token,
                 wallet_address=wallet_address,
             ),
             200,
@@ -232,17 +222,13 @@ def register():
 
     return render_template(
         'user/register.html',
-        wallet_address=wallet_address,
-        network=network,
-        token=auth_token,
+        wallet_address=wallet_address
     )
 
 
 @bp.route("/kyc", methods=["GET", "POST"])
 @require_wallet_auth
 def kyc(profile_id):
-    request_token = request.args.get("token")
-    transaction_id = request.args.get("transaction_id")
     transaction_network = request.args.get("network")
     amount = request.args.get("amount")
 
@@ -251,11 +237,7 @@ def kyc(profile_id):
         success_url=url_for(
             "user.kyc_success",
             _external=True,
-            _scheme="https",
-            token=request_token,
-            transaction_id=transaction_id,
-            network=transaction_network,
-            amount=amount,
+            _scheme="https"
         ),
         error_url=url_for("user.kyc_failure", _external=True, _scheme="https"),
         unverified_url=url_for("user.kyc_pending", _external=True, _scheme="https"),
@@ -291,10 +273,7 @@ def kyc_success():
     app.logger.info("KYC process completed successfully")
     return render_template(
         "user/kyc_success.html",
-        transaction_id=request.args.get("transaction_id"),
-        network=request.args.get("network"),
-        token=request.args.get("token"),
-        amount=request.args.get("amount"),
+        transaction_id=request.args.get("transaction_id")
     )
 
 

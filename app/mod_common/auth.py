@@ -4,7 +4,7 @@ from datetime import datetime, UTC, timedelta
 from typing import Dict, Optional
 
 import jwt
-from flask import session, Blueprint, request, jsonify, current_app
+from flask import session, Blueprint, request, jsonify, current_app, make_response
 from nacl.signing import VerifyKey
 from nacl.encoding import Base64Encoder
 import base64
@@ -188,11 +188,15 @@ def verify_signature():
     session['wallet_address'] = wallet_address
     session['authenticated'] = True
 
-    return jsonify({
+    response = make_response(jsonify({
         'token': token,
         'wallet_address': wallet_address,
         'expires_in': 86400  # 24 hours
-    }), 200
+    }), 200)
+
+    response.set_cookie('auth_token', token, max_age=86400)
+    response.set_cookie('wallet_address', token, max_age=86400)
+    return response
 
 @auth_bp.route('/logout', methods=['POST', 'GET'])
 def logout():
@@ -208,7 +212,7 @@ def logout():
     response = make_response(redirect('/'))
 
     # Clear any cookies
-    response.set_cookie('mykobo_auth_token', '', expires=0)
-    response.set_cookie('mykobo_wallet_address', '', expires=0)
+    response.set_cookie('auth_token', '', expires=0)
+    response.set_cookie('wallet_address', '', expires=0)
 
     return response
