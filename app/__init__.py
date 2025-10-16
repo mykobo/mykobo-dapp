@@ -12,7 +12,7 @@ from mykobo_py.identity.identity import IdentityServiceClient
 from mykobo_py.wallets.wallets import WalletServiceClient
 def create_app(env):
     app = Flask(__name__)
-    if env == "development":
+    if env in ["development", "local"]:
         load_dotenv(find_dotenv())
 
     configuration = CONFIG_MAP[env]

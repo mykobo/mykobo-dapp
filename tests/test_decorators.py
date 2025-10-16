@@ -87,7 +87,7 @@ class TestRequireWalletAuthDecorator:
         assert data['wallet'] == 'test_wallet_123'
 
     def test_expired_token_rejected(self, client, test_blueprint, app):
-        """Test that expired JWT token is rejected"""
+        """Test that expired JWT token redirects to home"""
         # Create expired token
         token = jwt.encode(
             {
@@ -104,10 +104,8 @@ class TestRequireWalletAuthDecorator:
             headers={'Authorization': f'Bearer {token}'}
         )
 
-        assert response.status_code == 401
-        data = response.get_json()
-        assert 'error' in data
-        assert data['error'] == 'Token expired'
+        # Expired tokens should redirect to home to allow re-authentication
+        assert response.status_code == 301
 
     def test_invalid_token_rejected(self, client, test_blueprint):
         """Test that invalid JWT token is rejected"""
@@ -405,7 +403,7 @@ class TestRequireWalletAuthDecorator:
         assert data['wallet'] == wallet_cookie
 
     def test_expired_token_in_cookie_rejected(self, client, test_blueprint, app):
-        """Test that expired token in cookie is rejected"""
+        """Test that expired token in cookie redirects to home"""
         token = jwt.encode(
             {
                 'wallet_address': 'test_wallet_123',
@@ -419,9 +417,8 @@ class TestRequireWalletAuthDecorator:
         client.set_cookie('auth_token', token)
         response = client.get('/protected')
 
-        assert response.status_code == 401
-        data = response.get_json()
-        assert data['error'] == 'Token expired'
+        # Expired tokens should redirect to home to allow re-authentication
+        assert response.status_code == 301
 
     def test_invalid_token_in_get_param_rejected(self, client, test_blueprint):
         """Test that invalid token in GET parameter is rejected"""

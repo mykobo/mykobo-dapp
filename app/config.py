@@ -35,4 +35,4 @@ class Production(Config):
     FLASK_ENV = "production"
 
 
-CONFIG_MAP = {"development": Development, "production": Production}
+CONFIG_MAP = {"local": Development, "development": Development, "production": Production}

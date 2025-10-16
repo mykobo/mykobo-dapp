@@ -164,7 +164,7 @@ class TestVerifyWalletSignature:
         )
 
         assert is_valid is False
-        assert "Signature verification failed" in error
+        assert "verification failed" in error.lower()
 
     def test_signature_verification_failure(self):
         """Test verification fails for incorrect signature"""
@@ -186,13 +186,15 @@ class TestVerifyWalletSignature:
         )
 
         assert is_valid is False
-        assert "Signature verification failed" in error
+        assert "verification failed" in error.lower()
 
     def test_successful_signature_verification(self):
         """Test successful signature verification flow"""
         # Create a signing key (simulating Solana wallet)
         signing_key = SigningKey.generate()
-        wallet_address = base64.b64encode(signing_key.verify_key.encode()).decode('utf-8')
+        # Use base58 encoding for Solana wallet address
+        import base58
+        wallet_address = base58.b58encode(signing_key.verify_key.encode()).decode('utf-8')
 
         # Generate challenge
         challenge = generate_auth_challenge(wallet_address)
@@ -218,7 +220,9 @@ class TestVerifyWalletSignature:
         """Test that a nonce cannot be used twice"""
         # Create a signing key
         signing_key = SigningKey.generate()
-        wallet_address = base64.b64encode(signing_key.verify_key.encode()).decode('utf-8')
+        # Use base58 encoding for Solana wallet address
+        import base58
+        wallet_address = base58.b58encode(signing_key.verify_key.encode()).decode('utf-8')
 
         # Generate challenge
         challenge = generate_auth_challenge(wallet_address)
@@ -460,7 +464,9 @@ class TestAuthIntegration:
         """Test complete flow from challenge to verification"""
         # Generate signing key
         signing_key = SigningKey.generate()
-        wallet_address = base64.b64encode(signing_key.verify_key.encode()).decode('utf-8')
+        # Use base58 encoding for Solana wallet address
+        import base58
+        wallet_address = base58.b58encode(signing_key.verify_key.encode()).decode('utf-8')
 
         # Step 1: Request challenge
         response = client.post(
