@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# Extract the script src path from an HTML file and update base.html template
+# Extract script src and CSS href from HTML file, update base.html, and merge CSS into main.css
 # Usage: ./extract-wagmi-script.sh <html-file> <base-html-file> [--dry-run]
 
 DRY_RUN=0
@@ -46,13 +46,45 @@ if [ -z "$SCRIPT_PATH" ]; then
     exit 1
 fi
 
-# Extract just the filename from the path (e.g., /assets/index-Co4bq4Ui.js -> index-Co4bq4Ui.js)
+# Extract the CSS path from the HTML file
+CSS_PATH=$(grep -o 'href="[^"]*\.css"' "$HTML_FILE" | sed 's/href="//;s/"//' | head -1)
+
+if [ -z "$CSS_PATH" ]; then
+    echo "Warning: No CSS link found in $HTML_FILE"
+fi
+
+# Extract just the filenames from the paths
 JS_FILENAME=$(basename "$SCRIPT_PATH")
+CSS_FILENAME=$(basename "$CSS_PATH")
 
 if [ $DRY_RUN -eq 1 ]; then
-    echo "[DRY RUN] Would replace path after 'filename=' with 'js/$JS_FILENAME' in $BASE_HTML"
+    echo "[DRY RUN] Would replace JS path with 'js/$JS_FILENAME' in $BASE_HTML"
+    if [ -n "$CSS_FILENAME" ]; then
+        echo "[DRY RUN] Would merge CSS from $(dirname "$HTML_FILE")/css/$CSS_FILENAME into app/static/css/main.css"
+    fi
 else
-    # Replace the path after filename= in base.html
+    # Replace the JS path in base.html
     sed -i'' -e "s|filename=['\"]js/[^'\"]*['\"]|filename='js/$JS_FILENAME'|g" "$BASE_HTML"
-    echo "Replaced path after 'filename=' with 'js/$JS_FILENAME' in $BASE_HTML"
+    echo "✓ Replaced JS path with 'js/$JS_FILENAME' in $BASE_HTML"
+
+    # Merge CSS into main.css
+    if [ -n "$CSS_FILENAME" ]; then
+        HTML_DIR=$(dirname "$HTML_FILE")
+        GENERATED_CSS="$HTML_DIR/css/$CSS_FILENAME"
+        MAIN_CSS="app/static/css/main.css"
+
+        if [ -f "$GENERATED_CSS" ]; then
+            echo "✓ Merging CSS from $GENERATED_CSS into $MAIN_CSS..."
+
+            # Determine the correct path for merge-css.py
+            # In Docker context, it's in ./app/, otherwise it's in current directory
+            if [ -f "./app/merge-css.py" ]; then
+                python3 ./app/merge-css.py "$GENERATED_CSS" "$MAIN_CSS"
+            else
+                python3 ./merge-css.py "$GENERATED_CSS" "$MAIN_CSS"
+            fi
+        else
+            echo "Warning: Generated CSS file not found: $GENERATED_CSS"
+        fi
+    fi
 fi

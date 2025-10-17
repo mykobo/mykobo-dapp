@@ -6,7 +6,7 @@ build:
 	cp -r ./wallet-connect/static/css ./app/static
 
 run:
-	source .venv/bin/activate && HOSTNAME="127.0.0.1" ENV=development SERVICE_PORT=5001 ./boot.sh
+	source .venv/bin/activate && HOSTNAME="127.0.0.1" ENV=local SERVICE_PORT=5001 ./boot.sh
 
 release:
 	semantic-release version --changelog

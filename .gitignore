@@ -97,3 +97,4 @@ wallet-connect/static/
 /app/static/css/index*.css
 /app/templates/layouts/base.html.bak
 /app/templates/layouts/base.html-e
+/app/static/css/main.css.backup

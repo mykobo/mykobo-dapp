@@ -28,6 +28,7 @@ RUN poetry install --no-interaction --no-ansi
 COPY app/ ./app/
 COPY boot.sh run.py ./
 COPY extract-wagmi-script.sh ./app/
+COPY merge-css.py ./app/
 
 # Copy javascript resources from wallet connect build
 COPY --from=js /js-app/static ./app/static

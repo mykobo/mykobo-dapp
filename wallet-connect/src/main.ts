@@ -53,14 +53,14 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
     <div id="connect" class="wallet-section">
       <h2>Connect Ethereum Wallet</h2>
       <div class="wallet-buttons">
-        ${config.connectors
+        ${config?.connectors
           .map(
-            (connector) =>
+            (connector: any) =>
               `<button class="wallet-button connect" id="${connector.uid}" type="button">
                 <span class="wallet-name">${connector.name}</span>
               </button>`,
           )
-          .join('')}
+          .join('') ?? ''}
       </div>
     </div>
     ` : ''}
@@ -88,12 +88,12 @@ function setupApp(element: HTMLDivElement) {
   }
 
   // Setup Ethereum wallet connection if enabled
-  if (ENABLE_ETHEREUM) {
+  if (ENABLE_ETHEREUM && config) {
     const connectElement = element.querySelector<HTMLDivElement>('#connect')
     const buttons = element.querySelectorAll<HTMLButtonElement>('.connect')
     for (const button of buttons) {
       const connector = config.connectors.find(
-        (connector) => connector.uid === button.id,
+        (connector: any) => connector.uid === button.id,
       )!
       button.addEventListener('click', async () => {
         try {
