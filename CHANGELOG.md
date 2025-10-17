@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.0.3 (2025-10-17)
+
+### Bug Fixes
+
+- Improve docker, fix broken styling
+  ([`84c4e8d`](https://github.com/mykobo/mykobo-dapp/commit/84c4e8d1fe22762ce6ba65ee879d967e066e4245))
+
+
 ## v1.0.2 (2025-10-17)
 
 ### Bug Fixes
