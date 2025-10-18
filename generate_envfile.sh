@@ -10,7 +10,7 @@ then
     echo "VITE_WC_PROJECT_ID=${VITE_WC_PROJECT_ID}" >> ./wallet-connect/.env.production
 
 else
-    echo "VITE_API_BASE_URL=http://dapp-alb-dev-903454883.eu-west-1.elb.amazonaws.com" > ./wallet-connect/.env.production
+    echo "VITE_API_BASE_URL=https://dapp-alb-dev-903454883.eu-west-1.elb.amazonaws.com" > ./wallet-connect/.env.production
     echo "VITE_SOLANA_NETWORK=mainnet" >> ./wallet-connect/.env.production
     echo "VITE_SOLANA_RPC_URL=https://api.mainnet-beta.solana.com" >> ./wallet-connect/.env.production
     echo "VITE_ENABLE_ETHEREUM=false" >> ./wallet-connect/.env.production
