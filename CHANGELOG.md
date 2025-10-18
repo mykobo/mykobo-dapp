@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.0.4 (2025-10-18)
+
+### Bug Fixes
+
+- Env file generation step
+  ([`e9497ea`](https://github.com/mykobo/mykobo-dapp/commit/e9497eab48f2b73bf34ada09f6c4e55ad8ca24f2))
+
+
 ## v1.0.3 (2025-10-17)
 
 ### Bug Fixes
