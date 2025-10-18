@@ -17,5 +17,5 @@ else
     echo "VITE_ENABLE_SOLANA=true" >> ./wallet-connect/.env.production
     echo "VITE_WC_PROJECT_ID=${VITE_WC_PROJECT_ID}" >> ./wallet-connect/.env.production
 fi
-ls ./wallet-connect
+ls -al ./wallet-connect
 cat ./wallet-connect/.env.production
