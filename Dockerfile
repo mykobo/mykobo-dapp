@@ -29,6 +29,8 @@ COPY app/ ./app/
 COPY boot.sh run.py ./
 COPY extract-wagmi-script.sh ./app/
 COPY merge-css.py ./app/
+COPY env.sh /docker-entrypoint.d/env.sh
+RUN chmod +x /docker-entrypoint.d/env.sh
 
 # Copy javascript resources from wallet connect build
 COPY --from=js /js-app/static ./app/static
@@ -45,5 +47,6 @@ EXPOSE 8000
 # Make boot.sh executable
 RUN chmod +x boot.sh
 
+ENTRYPOINT ["/docker-entrypoint.sh"]
 # Run the application
 CMD ["./boot.sh"]
