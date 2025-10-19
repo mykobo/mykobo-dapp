@@ -23,7 +23,7 @@ auth_bp = Blueprint('auth', __name__, url_prefix='/auth')
 nonce_store = {}
 TTL_IN_SECONDS = 300 # 5 minutes
 
-def generate_auth_challenge(wallet_address: str, ttl_in_seconds: int = 300) -> Dict[str, str]:
+def generate_auth_challenge(wallet_address: str) -> Dict[str, str]:
     """
     Generate a challenge for wallet authentication.
 
@@ -37,9 +37,11 @@ def generate_auth_challenge(wallet_address: str, ttl_in_seconds: int = 300) -> D
     # Store nonce with expiration (5 minutes)
     nonce_store[nonce] = {
         'wallet_address': wallet_address,
-        'expires_at': timestamp + ttl_in_seconds,
+        'expires_at': timestamp + TTL_IN_SECONDS,
         'used': False
     }
+
+    print(nonce_store)
 
     # Message to sign - includes timestamp to prevent replay attacks
     message = f"Sign this message to authenticate with MYKOBO DAPP.\n\nNonce: {nonce}\nTimestamp: {timestamp}"
