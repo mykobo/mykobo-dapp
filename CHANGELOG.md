@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.0.5 (2025-10-19)
+
+### Bug Fixes
+
+- Allow injecting of environment variables
+  ([`634adde`](https://github.com/mykobo/mykobo-dapp/commit/634adde381c15cd85520364838ac13e756327e57))
+
+
 ## v1.0.4 (2025-10-18)
 
 ### Bug Fixes
