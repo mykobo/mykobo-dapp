@@ -47,6 +47,6 @@ EXPOSE 8000
 # Make boot.sh executable
 RUN chmod +x boot.sh
 
-ENTRYPOINT ["/docker-entrypoint.sh"]
+ENTRYPOINT ["/docker-entrypoint.d/env.sh"]
 # Run the application
 CMD ["./boot.sh"]
