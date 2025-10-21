@@ -21,8 +21,7 @@ jobs:
             poetry install --no-interaction --no-root
       - run:
           name: Run Tests
-          command: poetry run pytest
-          context: core
+          command: AWS_REGION=eu-west-1 poetry run pytest
       - slack/notify:
           event: fail
           template: basic_fail_1
