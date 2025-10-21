@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.1.1 (2025-10-21)
+
+### Bug Fixes
+
+- Tests now work
+  ([`9b28c0d`](https://github.com/mykobo/mykobo-dapp/commit/9b28c0db099a8ff9afe887bd2ce19dc1a186cbcc))
+
+
 ## v1.1.0 (2025-10-21)
 
 ### Features
