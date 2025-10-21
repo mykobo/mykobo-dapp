@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.1.0 (2025-10-21)
+
+### Features
+
+- Deposit flow for happy path
+  ([`b188914`](https://github.com/mykobo/mykobo-dapp/commit/b1889148db009622379cb5c2c3a3959b7eb1f91e))
+
+
 ## v1.0.5 (2025-10-19)
 
 ### Bug Fixes
