@@ -16,12 +16,13 @@ jobs:
           command: |
             curl -sSL https://install.python-poetry.org | python3 -
             echo 'export PATH="$HOME/.local/bin:$PATH"' >> $BASH_ENV
+            echo 'export AWS_REGION=eu-west-1' >> $BASH_ENV
             source $BASH_ENV
             poetry config virtualenvs.create false
             poetry install --no-interaction --no-root
       - run:
           name: Run Tests
-          command: AWS_REGION=eu-west-1 poetry run pytest
+          command: poetry run pytest
       - slack/notify:
           event: fail
           template: basic_fail_1
