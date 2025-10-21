@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.1.2 (2025-10-21)
+
+### Bug Fixes
+
+- Bump mykobo library version
+  ([`8e80da5`](https://github.com/mykobo/mykobo-dapp/commit/8e80da514a345c1fc700b570f1184a3aaf006b97))
+
+
 ## v1.1.1 (2025-10-21)
 
 ### Bug Fixes
