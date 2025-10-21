@@ -1,8 +1,11 @@
 from flask_wtf import FlaskForm
 from mykobo_py.business.compliance.countries import WHITELISTED_COUNTRIES
 from schwifty import IBAN, BIC
-from wtforms import StringField, EmailField, SelectField, HiddenField
-from wtforms.validators import DataRequired, Email, ValidationError
+from wtforms import StringField, EmailField, SelectField, HiddenField, BooleanField, DecimalField
+from wtforms.validators import DataRequired, Email, ValidationError, NumberRange
+
+from app.util import get_maximum_transaction_value, get_minimum_transaction_value
+
 
 class EmailForm(FlaskForm):
     email_address = EmailField(
@@ -12,6 +15,16 @@ class EmailForm(FlaskForm):
         description="Email address",
     )
 
+
+class MykoboDecimalField(DecimalField):
+    def __init__(self, label=None, validators=None, **kwargs):
+        super().__init__(label, validators, **kwargs)
+        self.description = "Please enter a valid decimal value."
+
+    def process_formdata(self, valuelist):
+        if valuelist:
+            valuelist[0] = valuelist[0].replace(",", ".")
+        return super(MykoboDecimalField, self).process_formdata(valuelist)
 
 
 class User(FlaskForm):
@@ -70,3 +83,19 @@ class User(FlaskForm):
         bic = BIC(field.data, allow_invalid=True)
         if not bic.is_valid:
             raise ValidationError("A valid BIC/SWIFT number is required.")
+
+class Transaction(FlaskForm):
+    min_value = get_minimum_transaction_value()
+    max_value = get_maximum_transaction_value()
+    amount = MykoboDecimalField(
+        "Amount",
+        validators=[
+            NumberRange(
+                min=min_value,
+                max=max_value,
+                message=f"Amount must be between {min_value} and {max_value}",
+            )
+        ],
+        description=f"Minimum:{min_value} Maximum: {max_value}",
+    )
+    profile_id = HiddenField("profile_id", validators=[DataRequired()])

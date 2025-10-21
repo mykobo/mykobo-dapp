@@ -1,0 +1,115 @@
+{% extends "layouts/authenticated.html" %}
+{% block title %} Transaction Details {% endblock title %}
+{% block content %}
+
+    <!-- Wallet Info Button -->
+    <a href="{{ url_for("user.dashboard") }}" class="wallet-info-button mb-2">
+        <span class="wallet-address">Welcome back {{ user_data.first_name }} {{ user_data.last_name }}! </span>
+        <span id="wallet-balance" class="wallet-balance">{{ wallet_address[:9] }}...{{ wallet_address[-4:] }}</span>
+    </a>
+
+    <!-- Currency Balance Buttons -->
+    <div class="currency-buttons mb-2">
+        <button class="currency-button" disabled>
+            <div class="currency-icon"><img src="{{ url_for('static', filename='images/solana.svg') }}"
+                                            alt="Solana"/></div>
+            <div class="currency-amount" id="eur-balance">{{ wallet_balances.solana_balance }}</div>
+        </button>
+        <a href="{{ url_for('transaction.new', type=kind, asset='eurc') }}" class="currency-button" style="text-decoration: none; color: inherit;" {% if asset|lower == 'eurc' %}disabled{% endif %}>
+            <div class="currency-icon"><img src="{{ url_for('static', filename='images/eurc_token.svg') }}"
+                                            alt="EURC"/></div>
+            <div class="currency-amount" id="usd-balance">{{ wallet_balances.eurc_balance }}</div>
+        </a>
+        <a href="{{ url_for('transaction.new', type=kind, asset='usdc') }}" class="currency-button" style="text-decoration: none; color: inherit;" {% if asset|lower == 'usdc' %}disabled{% endif %}>
+            <div class="currency-icon"><img src="{{ url_for('static', filename='images/usdc_token.svg') }}"
+                                            alt="USDC"/></div>
+            <div class="currency-amount" id="usdc-balance">{{ wallet_balances.usdc_balance }}</div>
+        </a>
+    </div>
+
+    <div class="card card-body rounded-3 mb-4">
+        <div class="row">
+            {% if transaction_data.transaction_type.lower() == "deposit" %}
+                <span class="display-5">Send Exactly</span><br/>
+                <span class="text-lg-start display-3 pt-1 p-3">{{ transaction_data.value }}</span>
+            {% else %}
+                <span class="display-5">You Receive</span><br/>
+                <span class="text-lg-start display-3 pt-1 p-3">{{ float(transaction_data.value) - float(transaction_data.fee) }}</span>
+            {% endif %}
+        </div>
+        {% if transaction_data.transaction_type.lower() == "withdraw" %}
+            <div class="row">
+                <div class="display-5">At</div>
+                <div class="pt-1 p-3">
+                    <div class="me-auto p-1">{{ user_data.bank_account_number | upper }}
+                    </div>
+                </div>
+            </div>
+        {% else %}
+            <div class="row">
+                <div class="display-5">To</div>
+                <div class="pt-1 p-3">
+                    <div class="me-auto p-1">
+                        MYKOBO SP. z.o.o<br/>
+                        {{ mykobo_iban }}
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+        <div class="row">
+            <div class="display-5">Reference</div>
+            <div class="pt-1 p-3">{{ transaction_data.reference }}</div>
+            <br/>
+        </div>
+    </div>
+    <div class="card card-body rounded-3">
+        <label class="badge badge-outline-{{ transaction_data.status | status_to_label }} rounded-3 mb-3">
+            {{ transaction_data.status | transaction_status }}
+        </label>
+
+        {% if transaction_data.status != "completed" %}
+            {% if transaction_data.transaction_type.lower() == "deposit" %}
+                <div class="alert alert-warning p-2" role="alert">
+                    <p>Please make sure you include the reference <b>{{ reference }}</b> when making your bank
+                        payment to ensure payment is timely</p>
+                </div>
+            {% else %}
+                <div class="alert alert-warning p-2" role="alert">
+                    <p>
+                        We will be sending funds to this account:<br/>
+                        <b>{{ user_data.bank_account_number | upper }}</b>
+                        If it's incorrect, please contact support (support@mykobo.co) immediately!
+                    </p>
+                </div>
+            {% endif %}
+        {% else %}
+            <p class="text-lg-start">Thank you for your transaction.</p>
+        {% endif %}
+    </div>
+    <div>
+        <div class="table-responsive">
+            <table class="table table-hover mb-4">
+                <tbody>
+                {% if user_data %}
+                    <tr>
+                        <td>
+                            Requested By
+                        </td>
+                        <td>{{ user_data.first_name ~ " " ~ user_data.last_name }}</td>
+                    </tr>
+                {% endif %}
+
+                <tr>
+                    <td>Fee</td>
+                    <td>{{ transaction_data.fee }}</td>
+                </tr>
+                <tr>
+                    <td>You get</td>
+                    <td class="">{{ (transaction_data.value | float) - (transaction_data.fee | float)  }}</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+{% endblock %}

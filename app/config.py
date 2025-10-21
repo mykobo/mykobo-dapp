@@ -17,6 +17,8 @@ class Config(object):
     FEE_ENDPOINT = f"{BUSINESS_SERVER_HOST}/fees"
     IBAN = os.environ.get("IBAN")
     TRANSACTION_TOPIC = os.environ.get("TRANSACTION_TOPIC")
+    SQS_QUEUE_URL = os.environ.get("SQS_QUEUE_URL")
+    TRANSACTION_QUEUE_NAME = os.environ.get("TRANSACTION_QUEUE_NAME")  # will be deprecated once we move to kafka
 
     # Solana configuration
     SOLANA_RPC_URL = os.environ.get("SOLANA_RPC_URL", "https://api.mainnet-beta.solana.com")

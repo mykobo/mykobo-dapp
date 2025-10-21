@@ -1,7 +1,11 @@
 """
 Solana transaction utilities for USDC transfers
 """
-from typing import Dict, Any
+import uuid
+from datetime import datetime
+from typing import Dict, Any, Optional
+
+import botocore
 from solana.rpc.api import Client
 from solders.transaction import Transaction
 from solders.keypair import Keypair
@@ -14,22 +18,177 @@ from spl.token.instructions import (
     TransferCheckedParams,
 )
 from spl.token.constants import TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID
-from flask import current_app, Blueprint, Response, make_response
-
+from flask import current_app as app, Blueprint, Response, make_response, render_template, request, redirect, url_for
+from app.forms import Transaction as TransactionForm
 from app.decorators import require_wallet_auth
+from app.util import generate_reference, retrieve_ip_address, get_fee, get_minimum_transaction_value, \
+    get_maximum_transaction_value
 
 bp = Blueprint("transaction", __name__)
 network = 'solana'
 
+
+def determine_currencies(kind: str, asset: Optional[str]) -> (str, str):
+    if asset is None:
+        return None, None
+    if kind.lower() == 'deposit':
+        if asset.lower().startswith('usd'):
+            return 'USD', 'USDC'
+        elif asset.lower().startswith('eur'):
+            return 'EUR', 'EURC'
+        else:
+            return None, None
+    else:
+        if asset.lower().startswith('usd'):
+            return 'USDC', 'USD'
+        elif asset.lower().startswith('eur'):
+            return 'EUR', 'EURC'
+        return None, None
+
+
 @bp.route("/new", methods=["GET", "POST"])
 @require_wallet_auth
 def new() -> Response:
-    return make_response("Transaction Screen", 200)
+    kind = request.args.get("type")
+    asset = request.args.get("asset")
+    incoming_currency, outgoing_currency = determine_currencies(kind=kind, asset=asset)
+    wallet_address = request.wallet_address
+    form = TransactionForm()
+    tx_reference = generate_reference()
+    service_token = app.config["IDENTITY_SERVICE_CLIENT"].acquire_token()
+    user_data = {}
+
+    try:
+        wallet_profile_response = app.config["WALLET_SERVICE_CLIENT"].get_wallet_profile(service_token, wallet_address)
+        wallet_profile = wallet_profile_response.json()
+
+        try:
+            identity_service_response = app.config[
+                "IDENTITY_SERVICE_CLIENT"
+            ].get_user_profile(service_token, wallet_profile["profile_id"])
+
+            user_data = identity_service_response.json()
+        except Exception as e:
+            app.logger.exception(
+                "Could not fetch user data %s", e
+            )
+            return make_response(
+                render_template(
+                    "error/500.html", reason="Could not fetch user data"
+                ),
+                500,
+            )
+    except Exception as e:
+        app.logger.error(e)
+
+    if request.method == "POST":
+        form = TransactionForm(request.form)
+        if form.validate_on_submit():
+            fee_details = get_fee(app.config["FEE_ENDPOINT"], form.amount.data, kind, None)
+            ledger_payload = {
+                "meta_data": {
+                    "source": "DAPP",
+                    "instruction_type": "Transaction",
+                    "created_at": datetime.now().strftime(
+                        "%Y-%m-%dT%H:%M:%SZ"
+                    ),
+                    "token": service_token.token,
+                    "idempotency_key": str(uuid.uuid4()),
+                    "ip_address": retrieve_ip_address(request),
+                },
+                "payload": {
+                    "external_reference": str(uuid.uuid4()),
+                    "source": "ANCHOR_SOLANA",
+                    "reference": tx_reference,
+                    "first_name": user_data["first_name"],
+                    "last_name": user_data["last_name"],
+                    "transaction_type": kind,
+                    "status": (
+                        "pending_payee"
+                        if kind == "withdrawal"
+                        else "pending_payer"
+                    ),
+                    "incoming_currency": incoming_currency,
+                    "outgoing_currency": outgoing_currency,
+                    "value": str(form.amount.data),
+                    "fee": str(fee_details["total"]),
+                    "payer": (
+                        user_data["id"]
+                        if kind == "deposit"
+                        else None
+                    ),
+                    "payee": (
+                        user_data["id"]
+                        if kind == "withdraw"
+                        else None
+                    ),
+                },
+            }
+            try:
+                app.logger.info(
+                    f"Sending message to ledger for transaction [{tx_reference}]..."
+                )
+                print(ledger_payload)
+                queue_response = app.config[
+                    "MESSAGE_BUS"
+                ].send_message(
+                    ledger_payload,
+                    app.config["TRANSACTION_QUEUE_NAME"],
+                    "ANCHOR_SOLANA",
+                )
+                app.logger.info(
+                    f"Message Sent to Ledger Queue: {queue_response['MessageId']}"
+                )
+                return make_response(render_template(
+                    "transactions/info.html",
+                    transaction_data=ledger_payload["payload"],
+                    user_data=user_data,
+                    wallet_address=wallet_address,
+                    wallet_balances={
+                        "solana_balance": 2000,
+                        "usdc_balance": 2000,
+                        "eurc_balance": 2000,
+                    }
+                ), 201)
+            except botocore.exceptions.EndpointConnectionError as e:
+                app.logger.exception(
+                    f"We could not submit this transaction to our ledger: {e}"
+                )
+                return make_response(
+                    render_template(
+                        "error/500.html",
+                        reason="Could not submit transaction to ledger, if this persists please contact support",
+                    ),
+                    500,
+                )
+
+        else:
+            return make_response(redirect(url_for("transaction.new", type=kind)))
+    else:
+        return make_response(
+            render_template(
+                f"transactions/{kind}.html",
+                form=form,
+                user_data=user_data,
+                wallet_address=wallet_address,
+                kind=kind,
+                asset=asset,
+                min_amount=get_minimum_transaction_value(),
+                max_amount=get_maximum_transaction_value(),
+                fee_endpoint="/fees",
+                wallet_balances={
+                    "solana_balance": 2000,
+                    "usdc_balance": 2000,
+                    "eurc_balance": 2000,
+                }
+            )
+            , 200)
+
 
 @require_wallet_auth
 def create_transaction(
-    recipient_address: str,
-    amount: float,
+        recipient_address: str,
+        amount: float,
 ) -> Dict[str, Any]:
     """
     Create a Solana transaction to transfer TOKEN from the distribution address to a user-provided address.
@@ -52,9 +211,9 @@ def create_transaction(
     """
     try:
         # Get configuration from Flask app
-        rpc_url = current_app.config.get("SOLANA_RPC_URL")
-        distribution_private_key = current_app.config.get("SOLANA_DISTRIBUTION_PRIVATE_KEY")
-        eurc_mint_address = current_app.config.get("EURC_TOKEN_MINT")
+        rpc_url = app.config.get("SOLANA_RPC_URL")
+        distribution_private_key = app.config.get("SOLANA_DISTRIBUTION_PRIVATE_KEY")
+        eurc_mint_address = app.config.get("EURC_TOKEN_MINT")
 
         # Validate configuration
         if not rpc_url:
@@ -101,7 +260,7 @@ def create_transaction(
 
         # If recipient doesn't have a token account, create it
         if not recipient_account_info.value:
-            current_app.logger.info(
+            app.logger.info(
                 f"Recipient token account doesn't exist, creating it: {recipient_token_account}"
             )
             create_account_ix = create_associated_token_account(
@@ -136,7 +295,7 @@ def create_transaction(
         # Serialize transaction
         serialized_transaction = transaction.serialize()
 
-        current_app.logger.info(
+        app.logger.info(
             f"Created EURC transfer transaction: {amount} EURC to {recipient_address}"
         )
 
@@ -156,7 +315,7 @@ def create_transaction(
         }
 
     except ValueError as e:
-        current_app.logger.error(f"Validation error creating EURC transfer: {str(e)}")
+        app.logger.error(f"Validation error creating EURC transfer: {str(e)}")
         return {
             "status": "error",
             "message": str(e),
@@ -164,7 +323,7 @@ def create_transaction(
             "details": None
         }
     except Exception as e:
-        current_app.logger.error(f"Error creating EURC transfer transaction: {str(e)}")
+        app.logger.error(f"Error creating EURC transfer transaction: {str(e)}")
         return {
             "status": "error",
             "message": f"Failed to create transaction: {str(e)}",
@@ -187,7 +346,7 @@ def send_transaction(serialized_transaction: str) -> Dict[str, Any]:
             - message: Status message
     """
     try:
-        rpc_url = current_app.config.get("SOLANA_RPC_URL")
+        rpc_url = app.config.get("SOLANA_RPC_URL")
         if not rpc_url:
             raise ValueError("SOLANA_RPC_URL not configured")
 
@@ -197,7 +356,7 @@ def send_transaction(serialized_transaction: str) -> Dict[str, Any]:
         transaction_bytes = bytes.fromhex(serialized_transaction)
         result = client.send_raw_transaction(transaction_bytes)
 
-        current_app.logger.info(f"Transaction sent: {result.value}")
+        app.logger.info(f"Transaction sent: {result.value}")
 
         return {
             "status": "success",
@@ -206,7 +365,7 @@ def send_transaction(serialized_transaction: str) -> Dict[str, Any]:
         }
 
     except Exception as e:
-        current_app.logger.error(f"Error sending transaction: {str(e)}")
+        app.logger.error(f"Error sending transaction: {str(e)}")
         return {
             "status": "error",
             "transaction_signature": None,

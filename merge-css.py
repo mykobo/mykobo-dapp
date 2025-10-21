@@ -122,11 +122,11 @@ def merge_css(main_css_path: Path, generated_css_path: Path) -> str:
             new_rules.append(new_rule)
 
     # Combine results
-    result = '\n\n'.join(result_parts)
+    result = '\n'.join(result_parts)
 
     if new_rules:
-        result += '\n\n/* New rules from generated CSS */\n\n'
-        result += '\n\n'.join(new_rules)
+        result += '\n/* New rules from generated CSS */\n'
+        result += '\n'.join(new_rules)
 
     return result
 

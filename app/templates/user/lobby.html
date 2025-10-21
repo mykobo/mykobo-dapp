@@ -12,19 +12,19 @@
             <!-- Currency Balance Buttons -->
             <div class="currency-buttons">
                 <button class="currency-button">
-                    <div class="currency-icon">€</div>
+                    <div class="currency-icon"><img src="{{ url_for('static', filename='images/solana.svg') }}" alt="Solana"/></div>
                     <div class="currency-amount" id="eur-balance">{{ eur_balance }}</div>
                 </button>
                 <button class="currency-button">
-                    <div class="currency-icon">$</div>
+                    <div class="currency-icon"><img src="{{ url_for('static', filename='images/eurc_token.svg') }}" alt="EURC"/></div>
                     <div class="currency-amount" id="usd-balance">{{ usd_balance }}</div>
                 </button>
                 <button class="currency-button">
-                    <div class="currency-icon">$</div>
+                    <div class="currency-icon"><img src="{{ url_for('static', filename='images/usdc_token.svg') }}" alt="USDC"/></div>
                     <div class="currency-amount" id="usdc-balance">{{ usdc_balance }}</div>
                 </button>
             </div>
-            <form method="POST" action="{{ url_for('user.lobby', wallet_address=wallet_address) }}"
+            <form method="POST" action="{{ url_for('user.lobby') }}"
                   id="register-form">
                 {{ form.csrf_token }}
                 <!-- Email -->
