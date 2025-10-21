@@ -23,9 +23,13 @@ auth_bp = Blueprint('auth', __name__, url_prefix='/auth')
 nonce_store = {}
 TTL_IN_SECONDS = 300 # 5 minutes
 
-def generate_auth_challenge(wallet_address: str) -> Dict[str, str]:
+def generate_auth_challenge(wallet_address: str, ttl_in_seconds: int = TTL_IN_SECONDS) -> Dict[str, str]:
     """
     Generate a challenge for wallet authentication.
+
+    Args:
+        wallet_address: The wallet address requesting authentication
+        ttl_in_seconds: Time-to-live for the nonce in seconds (default: 300)
 
     Returns:
         Dict with nonce and message to sign
@@ -37,7 +41,7 @@ def generate_auth_challenge(wallet_address: str) -> Dict[str, str]:
     # Store nonce with expiration (5 minutes)
     nonce_store[nonce] = {
         'wallet_address': wallet_address,
-        'expires_at': timestamp + TTL_IN_SECONDS,
+        'expires_at': timestamp + ttl_in_seconds,
         'used': False
     }
 
