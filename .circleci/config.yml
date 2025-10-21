@@ -69,8 +69,10 @@ workflows:
     when:
       or:
         - equal: [main, << pipeline.git.branch >>]
-        - equal: [staging, << pipeline.git.branch >>]
-        - equal: [upgrade, << pipeline.git.branch >>]
     jobs:
+      - test:
+          context: core
       - build-image:
+          requires:
+            - test
           context: core
