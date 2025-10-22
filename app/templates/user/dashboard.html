@@ -32,33 +32,36 @@
 
             <!-- Get Verified Button -->
             {% if not approved %}
-                <button class="action-button primary-button" onclick="window.location.href='{{ url_for('user.kyc') }}'">
+                <button class="action-button primary-button" onclick="window.location.href='{{ url_for('user.kyc', profile_id=user_data.id) }}'">
                     Get Verified
                 </button>
             {% endif %}
 
-            <!-- Action Buttons -->
-            <div class="action-buttons-grid">
-                <button id="deposit-btn" class="action-button secondary-button"
-                        onclick="window.location.href='{{ url_for('transaction.new', type='deposit') }}'">
-                    Deposit
-                </button>
-                <button id="withdraw-btn" class="action-button secondary-button"
-                        onclick="window.location.href='{{ url_for('transaction.new', type='withdraw') }}'">
-                    Withdraw
-                </button>
-                <button id="swap-btn" class="action-button secondary-button"
-                        onclick="alert('Swap functionality coming soon')">
-                    Swap
-                </button>
-                <button id="liquidity-btn" class="action-button secondary-button"
-                        onclick="alert('Liquidity functionality coming soon')">
-                    Liquidity
-                </button>
-            </div>
+            {% if approved %}
+                <!-- Action Buttons -->
+                <div class="action-buttons-grid">
+                    <button id="deposit-btn" class="action-button secondary-button"
+                            onclick="window.location.href='{{ url_for('transaction.new', type='deposit') }}'">
+                        Deposit
+                    </button>
+                    <button id="withdraw-btn" class="action-button secondary-button"
+                            onclick="window.location.href='{{ url_for('transaction.new', type='withdraw') }}'">
+                        Withdraw
+                    </button>
+                    <button id="swap-btn" class="action-button secondary-button"
+                            onclick="alert('Swap functionality coming soon')">
+                        Swap
+                    </button>
+                    <button id="liquidity-btn" class="action-button secondary-button"
+                            onclick="alert('Liquidity functionality coming soon')">
+                        Liquidity
+                    </button>
+                </div>
+            {% endif %}
 
             <!-- Disconnect Button -->
-            <button type="button" id="disconnect-btn" class="disconnect-button-lobby" onclick="clearAuthToken('{{ url_for("auth.logout") }}')">
+            <button type="button" id="disconnect-btn" class="disconnect-button-lobby"
+                    onclick="clearAuthToken('{{ url_for("auth.logout") }}')">
                 Disconnect Wallet
             </button>
         </div>

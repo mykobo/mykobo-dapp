@@ -66,11 +66,9 @@ class User(FlaskForm):
         description="City of your residence",
     )
     country = SelectField('Country', description="Country of residence", choices=provided_choices, validate_choice=False)
-    token = HiddenField("token", validators=[DataRequired()])
 
 
-    @staticmethod
-    def validate_bank_account_number(field):
+    def validate_bank_account_number(self, field):
         iban = IBAN(field.data, allow_invalid=True)
         if not iban.is_valid:
             raise ValidationError("A valid IBAN is required.")
@@ -78,8 +76,7 @@ class User(FlaskForm):
         if iban.country_code not in WHITELISTED_COUNTRIES:
             raise ValidationError("Unfortunately, we do not support IBANs from your country. Please contact support for more information.")
 
-    @staticmethod
-    def validate_bank_number(field):
+    def validate_bank_number(self, field):
         bic = BIC(field.data, allow_invalid=True)
         if not bic.is_valid:
             raise ValidationError("A valid BIC/SWIFT number is required.")

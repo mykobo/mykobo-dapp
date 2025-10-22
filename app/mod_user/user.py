@@ -1,11 +1,12 @@
 from flask import current_app as app, Blueprint, request, make_response, render_template, redirect, url_for, Response, \
     flash
 from mykobo_py.idenfy.models.requests import AccessTokenRequest
+from mykobo_py.identity.models.request import CustomerRequest
 from mykobo_py.wallets.models.request import RegisterWalletRequest
 from requests import HTTPError
 
 from app.decorators import require_wallet_auth
-from app.forms import EmailForm
+from app.forms import EmailForm, User
 from mykobo_py.identity.utils import kyc_rejected, kyc_passed
 
 bp = Blueprint("user", __name__, url_prefix="/user")
@@ -44,17 +45,6 @@ def dashboard() -> Response:
                         "common/contact.html", topic="About your verification"
                     ),
                     200,
-                )
-            if not kyc_passed(user_data.get("kyc_status")):
-                app.logger.info(
-                    "User has not yet passed KYC, presenting KYC..."
-                )
-                return redirect(
-                    url_for(
-                        "user.kyc",
-                        profile_id=user_data.get("id"),
-                        network=network
-                    )
                 )
 
             return make_response(
@@ -154,6 +144,11 @@ def lobby():
                     except HTTPError as wallet_error:
                         if wallet_error.response.status_code == 400:
                             app.logger.warning(wallet_error)
+                        elif wallet_error.response.status_code == 409:
+                            app.logger.info(
+                                f"Wallet already registered for this user: {wallet_error.response.json()}"
+                            )
+                            return redirect(url_for("user.kyc", profile_id=profile_id))
                         else:
                             app.logger.error(f"Error registering wallet: {wallet_error}")
                             return make_response(
@@ -213,25 +208,149 @@ def lobby():
 @bp.route("/register", methods=["GET", "POST"])
 @require_wallet_auth
 def register():
-    wallet_address = request.args.get("wallet_address")
-    auth_token = request.args.get("token")
+    wallet_address = request.wallet_address
 
     if request.method == "POST":
-        service_token = app.config["IDENTITY_SERVICE_CLIENT"].acquire_token()
-        new_user = app.config["IDENTITY_SERVICE_CLIENT"].create_customer()
+        form = User(request.form)
+        form.country.choices = app.config["COUNTRY_CHOICES"]
+        if form.validate_on_submit():
+            service_token = app.config["IDENTITY_SERVICE_CLIENT"].acquire_token()
+            create_user_request = CustomerRequest(
+                id=None,
+                account=None,
+                first_name=form.first_name.data,
+                last_name=form.last_name.data,
+                email_address=form.email_address.data,
+                additional_name=None,
+                address_line_1=form.address_line_1.data,
+                address_line_2=form.address_line_2.data,
+                mobile_number=None,
+                birth_date=None,
+                birth_country_code=None,
+                id_country_code=form.country.data,
+                bank_account_number=form.bank_account_number.data,
+                bank_number=form.bank_number.data,
+                tax_id=None,
+                tax_id_name=None,
+                credential_id=service_token.subject_id,
+            )
+            try:
+                identity_response = app.config[
+                    "IDENTITY_SERVICE_CLIENT"
+                ].create_new_customer(service_token, create_user_request)
+                if identity_response.ok:
+                    profile_id = identity_response.json()["id"]
+                    app.logger.info(
+                        f"User created successfully, registering new wallet {wallet_address} with this user id [{profile_id}]"
+                    )
+                    # now register the user on the wallet service
+                    wallet_register_request = RegisterWalletRequest(
+                        public_key=wallet_address,
+                        profile_id=profile_id,
+                        memo=None,
+                        chain="STELLAR",
+                    )
+                    try:
+                        wallet_response = app.config[
+                            "WALLET_SERVICE_CLIENT"
+                        ].register_wallet(service_token, wallet_register_request)
+                        if wallet_response.ok:
+                            # First check if the user has already passed KYC
+                            try:
+                                app.logger.info(
+                                    f"Checking KYC status for user with profile id {profile_id}"
+                                )
+                                kyc_check_response = app.config[
+                                    "IDENTITY_SERVICE_CLIENT"
+                                ].get_user_profile(service_token, profile_id)
+                                if kyc_check_response.ok:
+                                    if kyc_passed(
+                                            kyc_check_response.json().get("kyc_status")
+                                    ):
+                                        app.logger.info(
+                                            "User has already passed KYC, redirecting to dashboard..."
+                                        )
+                                        return redirect(
+                                            url_for(
+                                                f"user.dashboard"
+                                            )
+                                        )
+                            except HTTPError as e:
+                                app.logger.error(
+                                    f"Error checking KYC status: {e.response.json()}"
+                                )
+                                return make_response(
+                                    render_template(
+                                        "error/500.html",
+                                        reason="We had trouble checking your KYC status, please try again later",
+                                    ),
+                                    500,
+                                )
 
+                            # now kick off the KYC process
+                            app.logger.info(
+                                "Wallet registered successfully, handing off to kyc provider..."
+                            )
+                            return redirect(
+                                url_for("user.kyc", profile_id=profile_id)
+                            )
+                        else:
+                            app.logger.error(
+                                f"Error registering wallet: {wallet_response.text}"
+                            )
+                    except HTTPError as wallet_error:
+                        if wallet_error.response.status_code == 409:
+                            app.logger.info(
+                                f"Wallet already registered for this user: {wallet_error.response.json()}"
+                            )
+                            # If the wallet is already registered, we can proceed to KYC
+                            return redirect(
+                                url_for("user.kyc")
+                            )
+                        else:
+                            app.logger.error(
+                                f"Error registering wallet: {wallet_error}"
+                            )
+                            return make_response(
+                                render_template(
+                                    "error/500.html",
+                                    reason="We had trouble registering your wallet, please contact support (support@mykobo.co)"
+                                )
+                            )
+                else:
+                    app.logger.error(
+                        f"Error creating user: {identity_response.text}"
+                    )
+            except Exception as e:
+                app.logger.error(f"Error creating user: {e}")
+                make_response(render_template(
+                    "error/500.html",
+                    reason="We could not create your profile please try again a little later"),
+                    500
+                )
+        else:
+            app.logger.info("Form invalid")
+            if form.errors:
+                for field, errors in form.errors.items():
+                    flash(f"{field.replace("_", " ").title()}: {', '.join(errors)}", "danger")
+    else:
+        email_address = request.args.get("email_address")
+        form = User()
+        form.country.choices = app.config["COUNTRY_CHOICES"]
+        form.email_address.data = email_address
     return render_template(
         'user/register.html',
-        wallet_address=wallet_address
+        wallet_address=wallet_address,
+        form=form,
     )
 
 
 @bp.route("/kyc", methods=["GET", "POST"])
 @require_wallet_auth
-def kyc(profile_id):
-    transaction_network = request.args.get("network")
-    amount = request.args.get("amount")
-
+def kyc():
+    profile_id = request.args.get("profile_id")
+    if profile_id is None:
+        return make_response(render_template("error/500.html", reason="Bad request"), 500)
     access_token_request = AccessTokenRequest(
         external_ref=profile_id.split(":")[2],
         success_url=url_for(
@@ -269,11 +388,11 @@ def kyc(profile_id):
         )
 
 @bp.route("/verify_user/success", methods=["GET"])
+@require_wallet_auth
 def kyc_success():
     app.logger.info("KYC process completed successfully")
     return render_template(
-        "user/kyc_success.html",
-        transaction_id=request.args.get("transaction_id")
+        "user/kyc_success.html"
     )
 
 

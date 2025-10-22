@@ -15,128 +15,53 @@
             </div>
 
             <!-- Registration Form -->
-            <form method="POST" action="{{ url_for('user.register') }}"
-                  id="register-form">
-                <!-- First Name -->
-                <div class="form-group">
-                    <label for="first_name" class="form-label">First Name</label>
-                    <input
-                            type="text"
-                            id="first_name"
-                            name="first_name"
-                            class="form-input"
-                            placeholder="Enter your first name"
-                            required
-                    >
+            <form role="form"
+                  action="{{ url_for("user.register") }}"
+                  method="POST">
+                {{ form.csrf_token }}
+                <div class="form-group mb-2">
+                    <label>{{ form.first_name.description }}</label>
+                    {{ form.first_name(class="form-input p_input", id="firstNameInput", placeholder="First Name") }}
+                </div>
+                <div class="form-group mb-2">
+                    <label>{{ form.last_name.description }}</label>
+                    {{ form.last_name(class="form-input p_input", id="lastNameInput", placeholder="Last name") }}
+                </div>
+                <div class="form-group mb-2">
+                    <label>{{ form.email_address.description }}</label>
+                    {{ form.email_address(class="form-input p_input", id="emailAddress", placeholder="Email Address") }}
+                </div>
+                <div class="form-group mb-2">
+                    <label>{{ form.bank_account_number.description }}</label>
+                    {{ form.bank_account_number(class="form-input p_input", id="bankAccountNumber", placeholder="IBAN") }}
+                </div>
+                <div class="form-group mb-2">
+                    <label>{{ form.bank_number.description }}</label>
+                    {{ form.bank_number(class="form-input p_input", id="bankNumber", placeholder="BIC") }}
+                </div>
+                <div class="form-group mb-2">
+                    <label>{{ form.address_line_1.description }}</label>
+                    {{ form.address_line_1(class="form-input p_input", id="addressLine1", placeholder="Address") }}
+                </div>
+                <div class="form-group mb-2">
+                    <label>{{ form.address_line_2.description }}</label>
+                    {{ form.address_line_2(class="form-input p_input", id="addressLine2", placeholder="City") }}
+                </div>
+                <div class="form-group mb-2">
+                    <label>{{ form.country.description }}</label>
+                    {{ form.country(class="form-input form-select", id="country") }}
                 </div>
 
-                <!-- Last Name -->
-                <div class="form-group">
-                    <label for="last_name" class="form-label">Last Name</label>
-                    <input
-                            type="text"
-                            id="last_name"
-                            name="last_name"
-                            class="form-input"
-                            placeholder="Enter your last name"
-                            required
-                    >
+                <div class="alert alert-info mt-3">
+                    <h5>Before you continue</h5>
+                    <p>
+                        By signing up to this service you are confirming that you are opening this account on your own behalf,
+                        and are not acting on behalf of any other person or entity. You are also confirming that the
+                        documentation you provide for verification purposes are not for anyone else but the person creating this
+                        account.
+                    </p>
                 </div>
 
-                <!-- Email -->
-                <div class="form-group">
-                    <label for="email" class="form-label">Email</label>
-                    <input
-                            type="email"
-                            id="email"
-                            name="email"
-                            class="form-input"
-                            placeholder="your.email@example.com"
-                            required
-                    >
-                </div>
-
-                <!-- Phone Number -->
-                <div class="form-group">
-                    <label for="iban" class="form-label">IBAN</label>
-                    <input
-                            type="text"
-                            id="iban"
-                            name="iban"
-                            class="form-input"
-                            placeholder="IBAN"
-                            required
-                    >
-                </div>
-
-                <div class="form-group">
-                    <label for="bic" class="form-label">BIC</label>
-                    <input
-                            type="text"
-                            id="bic"
-                            name="bic"
-                            class="form-input"
-                            placeholder="BIC"
-                            required
-                    >
-                </div>
-
-                <div class="form-group">
-                    <label for="address_line_1" class="form-label">Address Line 1</label>
-                    <input
-                            type="text"
-                            id="address_line_1"
-                            name="address_line_1"
-                            class="form-input"
-                            placeholder="Address"
-                            required
-                    >
-                </div>
-
-                <div class="form-group">
-                    <label for="address_line_2" class="form-label">City/Town</label>
-                    <input
-                            type="text"
-                            id="address_line_2"
-                            name="address_line_2"
-                            class="form-input"
-                            placeholder="City"
-                            required
-                    >
-                </div>
-
-                <!-- Country -->
-                <div class="form-group">
-                    <label for="country" class="form-label">Country</label>
-                    <select id="country" name="country" class="form-select" required>
-                        <option value="">Select your country</option>
-                        <option value="US">United States</option>
-                        <option value="GB">United Kingdom</option>
-                        <option value="CA">Canada</option>
-                        <option value="DE">Germany</option>
-                        <option value="FR">France</option>
-                        <option value="ES">Spain</option>
-                        <option value="IT">Italy</option>
-                        <option value="NL">Netherlands</option>
-                        <option value="AU">Australia</option>
-                        <option value="JP">Japan</option>
-                        <option value="KR">South Korea</option>
-                        <option value="SG">Singapore</option>
-                        <option value="OTHER">Other</option>
-                    </select>
-                </div>
-
-                <!-- Error/Success Messages -->
-                <div id="message-container">
-                    {% if error %}
-                        <div class="error-message">{{ error }}</div>
-                    {% endif %}
-                    {% if success %}
-                        <div class="success-message">{{ success }}</div>
-                    {% endif %}
-                </div>
-
-                <!-- Submit Button -->
                 <button type="submit" class="mt-4 action-button primary-button" id="submit-btn">
                     Continue
                 </button>
@@ -146,13 +71,58 @@
 {% endblock %}
 {% block additional_javascript %}
     <script>
-        // Form validation
-        const form = document.getElementById('register-form');
-        const submitBtn = document.getElementById('submit-btn');
+        document.addEventListener('DOMContentLoaded', function () {
+            const form = document.querySelector('form[role="form"]');
+            const submitBtn = form.querySelector('button[type="submit"]');
+            const ibanInput = document.getElementById('bankAccountNumber');
+            const bankNumberInput = document.getElementById('bankNumber');
+            const bankNumberDesc = document.getElementById('bankNumberDesc');
+            const bankAccountNumberDesc = document.getElementById('bankAccountNumberDesc');
 
-        form.addEventListener('submit', function (e) {
-            submitBtn.disabled = true;
-            submitBtn.textContent = 'Registering...';
+            form.addEventListener('submit', function () {
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'processing...';
+            });
+
+            ibanInput.addEventListener('input', function () {
+                if (ibanInput.value.trim()) {
+                    bankNumberInput.value = 'Deriving Bank Number';
+                } else {
+                    bankNumberInput.value = '';
+                }
+            });
+
+            ibanInput.addEventListener('blur', function () {
+                const iban = ibanInput.value.trim();
+                if (iban) {
+                    bankNumberInput.value = 'Deriving Bank Number';
+                    fetch(`/iban_check?iban=${encodeURIComponent(iban)}`)
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.valid) {
+                                if (data.bic){
+                                    bankNumberInput.value = data.bic;
+                                    if (bankNumberDesc) bankNumberDesc.textContent = data.bank_name || '{{ form.bank_number.description }}';
+                                }
+                            } else {
+                                if (data.bic){
+                                    bankNumberInput.value = data.bic;
+                                }
+                                if (bankAccountNumberDesc) bankAccountNumberDesc.textContent = data.message || '{{ form.bank_account_number.description }}';
+                            }
+
+                        })
+                        .catch(error => {
+                            bankNumberInput.value = '';
+                            if (bankAccountNumberDesc) bankAccountNumberDesc.textContent = data.message ||  '{{ form.bank_account_number.description }}';
+                            console.error('Error:', error);
+                        });
+                } else {
+                    bankNumberInput.value = '';
+                    if (bankNumberDesc) bankNumberDesc.textContent = '{{ form.bank_number.description }}';
+                    if (bankAccountNumberDesc) bankAccountNumberDesc.textContent = '{{ form.bank_account_number.description }}';
+                }
+            });
         });
     </script>
 {% endblock %}

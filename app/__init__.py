@@ -2,8 +2,11 @@ import os
 
 import jinja2
 import jinja_partials
+import pycountry
 from dotenv import load_dotenv, find_dotenv
 from flask import Flask
+from mykobo_py.business.compliance import countries
+from mykobo_py.idenfy.idenfy import IdenfyServiceClient
 
 from app.config import CONFIG_MAP
 from app.mod_solana import bp as transaction_bp
@@ -30,6 +33,9 @@ def create_app(env):
     wallet_service = WalletServiceClient(os.getenv("WALLET_SERVICE_HOST"), app.logger)
     app.config["WALLET_SERVICE_CLIENT"] = wallet_service
     app.config["MESSAGE_BUS"] = SQS(app.config["SQS_QUEUE_URL"])
+    app.config["IDENFY_SERVICE_CLIENT"] = IdenfyServiceClient(os.getenv("IDENFY_SERVICE_HOST"), app.logger)
+    country_tuples = [(country.alpha_2, country.name) for country in list(pycountry.countries) if country.alpha_2 in countries.WHITELISTED_COUNTRIES]
+    app.config["COUNTRY_CHOICES"] =  sorted(country_tuples, key=lambda tu: tu[1])
 
     app.register_blueprint(common_bp)
     app.register_blueprint(auth_bp)
