@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.1.4 (2025-10-22)
+
+### Bug Fixes
+
+- Registration now active
+  ([`1bf2ef9`](https://github.com/mykobo/mykobo-dapp/commit/1bf2ef9fa794ebef4b06a1cf0eb6c102bb99b947))
+
+
 ## v1.1.3 (2025-10-22)
 
 ### Bug Fixes
