@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.1.3 (2025-10-22)
+
+### Bug Fixes
+
+- Updated library and lobby width fix
+  ([`1df3059`](https://github.com/mykobo/mykobo-dapp/commit/1df3059004a993f9b6c5b22230e425611636f61a))
+
+
 ## v1.1.2 (2025-10-21)
 
 ### Bug Fixes
