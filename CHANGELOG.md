@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.1.5 (2025-10-28)
+
+### Bug Fixes
+
+- Persist transaction first before sending to queue
+  ([`42798ab`](https://github.com/mykobo/mykobo-dapp/commit/42798ab55f9e295eb882be6ebe613481a3f77734))
+
+
 ## v1.1.4 (2025-10-22)
 
 ### Bug Fixes
