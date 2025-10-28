@@ -23,6 +23,8 @@ from app.forms import Transaction as TransactionForm
 from app.decorators import require_wallet_auth
 from app.util import generate_reference, retrieve_ip_address, get_fee, get_minimum_transaction_value, \
     get_maximum_transaction_value
+from app.database import db
+from app.models import Transaction as TransactionModel
 
 bp = Blueprint("transaction", __name__)
 network = 'solana'
@@ -102,7 +104,7 @@ def new() -> Response:
                     "reference": tx_reference,
                     "first_name": user_data["first_name"],
                     "last_name": user_data["last_name"],
-                    "transaction_type": kind,
+                    "transaction_type": kind.upper(),
                     "status": (
                         "pending_payee"
                         if kind == "withdrawal"
@@ -124,11 +126,36 @@ def new() -> Response:
                     ),
                 },
             }
+            # Create and save database record BEFORE sending to queue
+            # This allows us to retry failed queue sends
+            transaction_record = TransactionModel.from_ledger_payload(
+                ledger_payload=ledger_payload,
+                wallet_address=wallet_address
+            )
+
+            try:
+                # Save transaction to database first
+                db.session.add(transaction_record)
+                db.session.commit()
+                app.logger.info(
+                    f"Transaction [{tx_reference}] saved to database with ID {transaction_record.id}"
+                )
+            except Exception as db_error:
+                app.logger.exception(f"Database error while saving transaction: {db_error}")
+                db.session.rollback()
+                return make_response(
+                    render_template(
+                        "error/500.html",
+                        reason="Could not save transaction record, if this persists please contact support",
+                    ),
+                    500,
+                )
+
+            # Now try to send to queue
             try:
                 app.logger.info(
                     f"Sending message to ledger for transaction [{tx_reference}]..."
                 )
-                print(ledger_payload)
                 queue_response = app.config[
                     "MESSAGE_BUS"
                 ].send_message(
@@ -139,6 +166,16 @@ def new() -> Response:
                 app.logger.info(
                     f"Message Sent to Ledger Queue: {queue_response['MessageId']}"
                 )
+
+                # Update transaction record with message ID
+                transaction_record.message_id = queue_response['MessageId']
+                transaction_record.queue_sent_at = datetime.now()
+                db.session.commit()
+
+                app.logger.info(
+                    f"Transaction [{tx_reference}] updated with message ID {queue_response['MessageId']}"
+                )
+
                 return make_response(render_template(
                     "transactions/info.html",
                     transaction_data=ledger_payload["payload"],
@@ -154,10 +191,27 @@ def new() -> Response:
                 app.logger.exception(
                     f"We could not submit this transaction to our ledger: {e}"
                 )
+                # Transaction is already saved in database for retry
+                app.logger.warning(
+                    f"Transaction [{tx_reference}] (DB ID: {transaction_record.id}) saved but not sent to queue. Manual retry required."
+                )
                 return make_response(
                     render_template(
                         "error/500.html",
                         reason="Could not submit transaction to ledger, if this persists please contact support",
+                    ),
+                    500,
+                )
+            except Exception as queue_error:
+                app.logger.exception(f"Queue error while sending transaction: {queue_error}")
+                # Transaction is already saved in database for retry
+                app.logger.warning(
+                    f"Transaction [{tx_reference}] (DB ID: {transaction_record.id}) saved but not sent to queue. Manual retry required."
+                )
+                return make_response(
+                    render_template(
+                        "error/500.html",
+                        reason="Could not submit transaction to queue, if this persists please contact support",
                     ),
                     500,
                 )

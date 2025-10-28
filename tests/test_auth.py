@@ -310,6 +310,31 @@ class TestCleanupExpiredNonces:
         cleanup_expired_nonces()  # Should not raise
         assert len(nonce_store) == 0
 
+    def test_cleanup_returns_count(self):
+        """Test that cleanup returns number of removed nonces"""
+        current_time = time.time()
+
+        # Add 3 expired nonces
+        for i in range(3):
+            nonce_store[f'expired_{i}'] = {
+                'wallet_address': f'wallet_{i}',
+                'expires_at': current_time - 100,
+                'used': False
+            }
+
+        # Add 2 valid nonces
+        for i in range(2):
+            nonce_store[f'valid_{i}'] = {
+                'wallet_address': f'wallet_{i}',
+                'expires_at': current_time + 100,
+                'used': False
+            }
+
+        removed_count = cleanup_expired_nonces()
+
+        assert removed_count == 3
+        assert len(nonce_store) == 2
+
 
 class TestAuthEndpoints:
     """Tests for authentication API endpoints"""
@@ -455,6 +480,108 @@ class TestAuthEndpoints:
         with client.session_transaction() as sess:
             assert sess['wallet_address'] == 'test_wallet'
             assert sess['authenticated'] is True
+
+
+    def test_auth_stats_endpoint(self, client):
+        """Test the stats endpoint returns correct information"""
+        nonce_store.clear()
+        current_time = time.time()
+
+        # Add various nonces
+        nonce_store['expired_used'] = {
+            'wallet_address': 'wallet1',
+            'expires_at': current_time - 100,
+            'used': True
+        }
+        nonce_store['expired_unused'] = {
+            'wallet_address': 'wallet2',
+            'expires_at': current_time - 50,
+            'used': False
+        }
+        nonce_store['valid_used'] = {
+            'wallet_address': 'wallet3',
+            'expires_at': current_time + 100,
+            'used': True
+        }
+        nonce_store['valid_unused'] = {
+            'wallet_address': 'wallet4',
+            'expires_at': current_time + 200,
+            'used': False
+        }
+
+        response = client.get('/auth/auth/stats')
+
+        assert response.status_code == 200
+        data = response.get_json()
+
+        assert 'before_cleanup' in data
+        assert 'after_cleanup' in data
+        assert 'timestamp' in data
+
+        # Before cleanup: 4 total, 2 used, 2 unused, 2 expired
+        before = data['before_cleanup']
+        assert before['total'] == 4
+        assert before['used'] == 2
+        assert before['unused'] == 2
+        assert before['expired'] == 2
+
+        # After cleanup: 2 remaining (valid ones), 2 cleaned (expired)
+        after = data['after_cleanup']
+        assert after['total'] == 2
+        assert after['cleaned'] == 2
+
+    def test_challenge_endpoint_triggers_cleanup(self, client):
+        """Test that challenge endpoint automatically cleans up expired nonces"""
+        nonce_store.clear()
+        current_time = time.time()
+
+        # Add expired nonces
+        nonce_store['expired1'] = {
+            'wallet_address': 'wallet1',
+            'expires_at': current_time - 100,
+            'used': False
+        }
+
+        # Request new challenge (should trigger cleanup)
+        response = client.post(
+            '/auth/auth/challenge',
+            json={'wallet_address': 'new_wallet'}
+        )
+
+        assert response.status_code == 200
+
+        # Expired nonce should be gone
+        assert 'expired1' not in nonce_store
+
+        # But new challenge nonce should be present
+        data = response.get_json()
+        new_nonce = data['challenge']['nonce']
+        assert new_nonce in nonce_store
+
+    def test_verify_endpoint_triggers_cleanup(self, client):
+        """Test that verify endpoint automatically cleans up expired nonces"""
+        nonce_store.clear()
+        current_time = time.time()
+
+        # Add expired nonces
+        nonce_store['expired1'] = {
+            'wallet_address': 'wallet1',
+            'expires_at': current_time - 100,
+            'used': False
+        }
+
+        # Make verify request (should trigger cleanup)
+        response = client.post(
+            '/auth/auth/verify',
+            json={
+                'wallet_address': 'test_wallet',
+                'signature': 'fake_signature',
+                'nonce': 'invalid_nonce'
+            }
+        )
+
+        # Expired nonce should be gone (even though verify failed)
+        assert 'expired1' not in nonce_store
 
 
 class TestAuthIntegration:

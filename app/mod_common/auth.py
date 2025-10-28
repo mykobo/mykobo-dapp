@@ -44,9 +44,6 @@ def generate_auth_challenge(wallet_address: str, ttl_in_seconds: int = TTL_IN_SE
         'expires_at': timestamp + ttl_in_seconds,
         'used': False
     }
-
-    print(nonce_store)
-
     # Message to sign - includes timestamp to prevent replay attacks
     message = f"Sign this message to authenticate with MYKOBO DAPP.\n\nNonce: {nonce}\nTimestamp: {timestamp}"
 
@@ -124,7 +121,12 @@ def verify_wallet_signature(
         return False, f"Signature verification failed: {str(e)}"
 
 def cleanup_expired_nonces():
-    """Remove expired nonces from store."""
+    """
+    Remove expired nonces from store.
+
+    Returns:
+        int: Number of nonces removed
+    """
     current_time = time.time()
     expired = [
         nonce for nonce, data in nonce_store.items()
@@ -132,6 +134,8 @@ def cleanup_expired_nonces():
     ]
     for nonce in expired:
         del nonce_store[nonce]
+
+    return len(expired)
 
 @auth_bp.route('/auth/challenge', methods=['POST'])
 @limiter.limit("5 per minute")
@@ -141,6 +145,9 @@ def get_auth_challenge():
 
     Payload: {"wallet_address": "base58_address"}
     """
+    # Clean up expired nonces before generating new challenge
+    cleanup_expired_nonces()
+
     data = request.get_json()
     wallet_address = data.get('wallet_address')
 
@@ -165,6 +172,9 @@ def verify_signature():
         "nonce": "challenge_nonce"
     }
     """
+    # Clean up expired nonces before verifying
+    cleanup_expired_nonces()
+
     data = request.get_json()
     wallet_address = data.get('wallet_address')
     signature = data.get('signature')
@@ -222,3 +232,39 @@ def logout():
     response.set_cookie('wallet_address', '', expires=0)
 
     return response
+
+@auth_bp.route('/auth/stats', methods=['GET'])
+def get_auth_stats():
+    """
+    Get authentication statistics and trigger cleanup.
+    Useful for monitoring and debugging.
+
+    Returns nonce store statistics before and after cleanup.
+    """
+    # Get stats before cleanup
+    total_nonces = len(nonce_store)
+    used_nonces = sum(1 for data in nonce_store.values() if data['used'])
+    unused_nonces = total_nonces - used_nonces
+
+    current_time = time.time()
+    expired_nonces = sum(
+        1 for data in nonce_store.values()
+        if current_time > data['expires_at']
+    )
+
+    # Perform cleanup
+    cleaned = cleanup_expired_nonces()
+
+    return jsonify({
+        'before_cleanup': {
+            'total': total_nonces,
+            'used': used_nonces,
+            'unused': unused_nonces,
+            'expired': expired_nonces
+        },
+        'after_cleanup': {
+            'total': len(nonce_store),
+            'cleaned': cleaned
+        },
+        'timestamp': current_time
+    }), 200

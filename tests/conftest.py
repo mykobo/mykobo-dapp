@@ -1,9 +1,16 @@
 """
 Pytest configuration and fixtures
 """
+import os
 import pytest
+
+# Set test database URI BEFORE any app imports
+# This must be done at module level before create_app is called
+os.environ['DATABASE_URL'] = 'sqlite:///:memory:'
+
 from app import create_app
 from app.mod_common.auth import nonce_store
+from app.database import db as _db
 
 
 @pytest.fixture
@@ -14,9 +21,47 @@ def app():
     app.config['SECRET_KEY'] = 'test-secret-key-for-jwt'
     app.config['WTF_CSRF_ENABLED'] = False
 
-    yield app
+    # Explicitly set SQLite for tests (already set in env but making it clear)
+    # Note: SQLite doesn't support PostgreSQL schemas, but SQLAlchemy will
+    # automatically ignore the schema parameter when using SQLite
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
+    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-    # Cleanup
+    with app.app_context():
+        # For SQLite, we need to tell SQLAlchemy to ignore schema names
+        # SQLite doesn't support schemas, so we use schema_translate_map
+        # to effectively remove the schema from table names
+        from sqlalchemy import event
+
+        @event.listens_for(_db.engine, "connect")
+        def _set_sqlite_pragma(dbapi_connection, connection_record):
+            """Set up schema translation for all SQLite connections"""
+            # This is called for every new connection
+
+        @event.listens_for(_db.session, "after_begin")
+        def _set_schema_translate_map(session, transaction, connection):
+            """Translate schema names for SQLite (removes schema prefix)"""
+            if connection.engine.dialect.name == 'sqlite':
+                connection.execution_options(
+                    schema_translate_map={"dapp": None}
+                )
+
+        # Create all tables in the test database with schema translation
+        connection = _db.engine.connect()
+        connection = connection.execution_options(schema_translate_map={"dapp": None})
+        _db.metadata.create_all(bind=connection)
+        connection.close()
+
+        yield app
+
+        # Cleanup
+        _db.session.remove()
+        connection = _db.engine.connect()
+        connection = connection.execution_options(schema_translate_map={"dapp": None})
+        _db.metadata.drop_all(bind=connection)
+        connection.close()
+
+    # Cleanup nonce store
     nonce_store.clear()
 
 

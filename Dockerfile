@@ -27,8 +27,14 @@ RUN poetry install --no-interaction --no-ansi
 # Copy application code
 COPY app/ ./app/
 COPY boot.sh run.py ./
+COPY retry_worker.py retry_transactions.py entrypoint.sh manage.py run_migrations.py ./
 COPY extract-wagmi-script.sh ./app/
 COPY merge-css.py ./app/
+
+# Copy migrations folder if it exists (for version-controlled migrations)
+# Using wildcard pattern so build doesn't fail if migrations/ doesn't exist
+COPY migrations/ ./migrations/
+
 COPY env.sh /docker-entrypoint.d/env.sh
 RUN chmod +x /docker-entrypoint.d/env.sh
 
@@ -44,9 +50,9 @@ ENV PYTHONUNBUFFERED=1
 # Expose port (default to 8000, can be overridden)
 EXPOSE 8000
 
-# Make boot.sh executable
-RUN chmod +x boot.sh
+# Make scripts executable
+RUN chmod +x boot.sh entrypoint.sh retry_worker.py retry_transactions.py
 
 ENTRYPOINT ["/docker-entrypoint.d/env.sh"]
-# Run the application
-CMD ["./boot.sh"]
+# Default to running web service, can be overridden with: docker run image worker
+CMD ["./entrypoint.sh", "web"]

@@ -16,6 +16,8 @@ from app.mod_common.auth import limiter
 from mykobo_py.identity.identity import IdentityServiceClient
 from mykobo_py.wallets.wallets import WalletServiceClient
 from mykobo_py.message_bus.sqs.SQS import SQS
+from app.database import init_app as init_database
+
 def create_app(env):
     app = Flask(__name__)
     if env in ["development", "local"]:
@@ -23,6 +25,9 @@ def create_app(env):
 
     configuration = CONFIG_MAP[env]
     app.config.from_object(configuration)
+
+    # Initialize database
+    init_database(app)
 
     # Initialize limiter with app
     limiter.init_app(app)

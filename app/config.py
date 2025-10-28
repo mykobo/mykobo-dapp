@@ -25,11 +25,17 @@ class Config(object):
     SOLANA_DISTRIBUTION_PRIVATE_KEY = os.environ.get("SOLANA_DISTRIBUTION_PRIVATE_KEY")
     USDC_TOKEN_MINT = os.environ.get("USDC_TOKEN_MINT", "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v")  # USDC mainnet mint
 
+    # Database configuration
+    SQLALCHEMY_DATABASE_URI = os.environ.get("DATABASE_URL")
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
+    SQLALCHEMY_ECHO = False
+
 class Development(Config):
     LOGLEVEL = os.environ.get("LOGLEVEL", "DEBUG")
     DEBUG = True
     FLASK_ENV = "development"
     FLASK_DEBUG = 1
+    SQLALCHEMY_ECHO = True  # Log SQL queries in development
 
 
 class Production(Config):
