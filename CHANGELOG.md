@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.2.0 (2025-10-29)
+
+### Features
+
+- Inbox pattern creating transactions
+  ([`eca1fcf`](https://github.com/mykobo/mykobo-dapp/commit/eca1fcfdf14001aea07c5db33a57e736ef32a543))
+
+
 ## v1.1.5 (2025-10-28)
 
 ### Bug Fixes
