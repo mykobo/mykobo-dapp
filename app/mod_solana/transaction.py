@@ -3,28 +3,17 @@ Solana transaction utilities for USDC transfers
 """
 import uuid
 from datetime import datetime
-from typing import Dict, Any, Optional
+from typing import Optional
 
 import botocore
-from solana.rpc.api import Client
-from solders.transaction import Transaction
-from solders.keypair import Keypair
-from solders.pubkey import Pubkey
-from solders.system_program import TransferParams, transfer
-from spl.token.instructions import (
-    get_associated_token_address,
-    create_associated_token_account,
-    transfer_checked,
-    TransferCheckedParams,
-)
-from spl.token.constants import TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID
-from flask import current_app as app, Blueprint, Response, make_response, render_template, request, redirect, url_for
+from flask import current_app as app, Blueprint, Response, make_response, render_template, request, redirect, url_for, \
+    flash
 from app.forms import Transaction as TransactionForm
 from app.decorators import require_wallet_auth
 from app.util import generate_reference, retrieve_ip_address, get_fee, get_minimum_transaction_value, \
     get_maximum_transaction_value
 from app.database import db
-from app.models import Transaction as TransactionModel
+from app.models import Transaction as TransactionModel, Transaction
 
 bp = Blueprint("transaction", __name__)
 network = 'solana'
@@ -59,6 +48,21 @@ def new() -> Response:
     tx_reference = generate_reference()
     service_token = app.config["IDENTITY_SERVICE_CLIENT"].acquire_token()
     user_data = {}
+
+    wallet_data = {}
+    try:
+        wallet_data = get_wallet_balance(wallet_address).json
+    except Exception as wallet_error:
+        app.logger.exception(f"Could not fetch wallet balance: {wallet_error}")
+
+    if asset and wallet_data and kind == 'withdraw':
+        minimum_transaction_value = get_minimum_transaction_value()
+        asset_balance = wallet_data["balances"].get(asset, {})
+        if "amount" in asset_balance and asset_balance["amount"] < minimum_transaction_value:
+            app.logger.warning(
+                "Asset balance is less than minimum transaction value ({})".format(minimum_transaction_value))
+            flash(f"You do not have enough {asset} minimum value is {minimum_transaction_value}", "danger")
+            return make_response(redirect(url_for("transaction.new", type=kind)), 302)
 
     try:
         wallet_profile_response = app.config["WALLET_SERVICE_CLIENT"].get_wallet_profile(service_token, wallet_address)
@@ -99,16 +103,16 @@ def new() -> Response:
                     "ip_address": retrieve_ip_address(request),
                 },
                 "payload": {
-                    "external_reference": str(uuid.uuid4()),
+                    "external_reference": str(uuid.uuid4()),  # This becomes transaction.id in database
                     "source": "ANCHOR_SOLANA",
                     "reference": tx_reference,
                     "first_name": user_data["first_name"],
                     "last_name": user_data["last_name"],
                     "transaction_type": kind.upper(),
                     "status": (
-                        "pending_payee"
-                        if kind == "withdrawal"
-                        else "pending_payer"
+                        "PENDING_PAYEE"
+                        if kind == "withdraw"
+                        else "PENDING_PAYER"
                     ),
                     "incoming_currency": incoming_currency,
                     "outgoing_currency": outgoing_currency,
@@ -140,6 +144,7 @@ def new() -> Response:
                 app.logger.info(
                     f"Transaction [{tx_reference}] saved to database with ID {transaction_record.id}"
                 )
+
             except Exception as db_error:
                 app.logger.exception(f"Database error while saving transaction: {db_error}")
                 db.session.rollback()
@@ -175,18 +180,7 @@ def new() -> Response:
                 app.logger.info(
                     f"Transaction [{tx_reference}] updated with message ID {queue_response['MessageId']}"
                 )
-
-                return make_response(render_template(
-                    "transactions/info.html",
-                    transaction_data=ledger_payload["payload"],
-                    user_data=user_data,
-                    wallet_address=wallet_address,
-                    wallet_balances={
-                        "solana_balance": 2000,
-                        "usdc_balance": 2000,
-                        "eurc_balance": 2000,
-                    }
-                ), 201)
+                return make_response(redirect(url_for("transaction.info", reference=tx_reference)))
             except botocore.exceptions.EndpointConnectionError as e:
                 app.logger.exception(
                     f"We could not submit this transaction to our ledger: {e}"
@@ -224,204 +218,163 @@ def new() -> Response:
                 f"transactions/{kind}.html",
                 form=form,
                 user_data=user_data,
-                wallet_address=wallet_address,
                 kind=kind,
                 asset=asset,
                 min_amount=get_minimum_transaction_value(),
                 max_amount=get_maximum_transaction_value(),
                 fee_endpoint="/fees",
-                wallet_balances={
-                    "solana_balance": 2000,
-                    "usdc_balance": 2000,
-                    "eurc_balance": 2000,
-                }
+                wallet_data=wallet_data
             )
             , 200)
 
 
+@bp.route("/transaction/info/<reference>", methods=["GET"])
 @require_wallet_auth
-def create_transaction(
-        recipient_address: str,
-        amount: float,
-) -> Dict[str, Any]:
-    """
-    Create a Solana transaction to transfer TOKEN from the distribution address to a user-provided address.
+def info(reference) -> Response:
+    wallet_address = request.wallet_address
+    user_data = {}
+    wallet_data = {}
 
-    Args:
-        recipient_address: The recipient's Solana wallet address (base58 string)
-        amount: The amount of TOKEN to transfer (in TOKEN units, will be converted to lamports)
+
+    try:
+        wallet_data = get_wallet_balance(wallet_address).json
+    except Exception as wallet_error:
+        app.logger.exception(f"Could not fetch wallet balance: {wallet_error}")
+
+    service_token = app.config["IDENTITY_SERVICE_CLIENT"].acquire_token()
+
+    try:
+        wallet_profile_response = app.config["WALLET_SERVICE_CLIENT"].get_wallet_profile(service_token, wallet_address)
+        wallet_profile = wallet_profile_response.json()
+
+        try:
+            identity_service_response = app.config[
+                "IDENTITY_SERVICE_CLIENT"
+            ].get_user_profile(service_token, wallet_profile["profile_id"])
+
+            user_data = identity_service_response.json()
+        except Exception as e:
+            app.logger.exception(
+                "Could not fetch user data %s", e
+            )
+            return make_response(
+                render_template(
+                    "error/500.html", reason="Could not fetch user data"
+                ),
+                500,
+            )
+    except Exception as e:
+        app.logger.error(e)
+
+    transaction = Transaction.query.filter_by(reference=reference).first()
+
+    return make_response(render_template(
+        "transactions/info.html",
+        transaction_data=transaction,
+        user_data=user_data,
+        wallet_data=wallet_data
+    ), 201)
+
+
+@bp.route("/balance", methods=["GET"])
+@require_wallet_auth
+def balance() -> Response:
+    """
+    API endpoint to get wallet balance.
+    Extracts wallet address from authenticated request.
+    """
+    wallet_address = request.wallet_address
+    return get_wallet_balance(wallet_address)
+
+
+def get_wallet_balance(wallet_address: str) -> Response:
+    """
+    Get wallet balance for SOL, USDC, and EURC tokens.
 
     Returns:
-        Dict containing:
-            - transaction: Serialized transaction (base64 string)
-            - transaction_hash: Transaction signature/hash
-            - status: "success" or "error"
-            - message: Status message
-            - details: Additional transaction details
-
-    Raises:
-        ValueError: If configuration is missing or invalid
-        Exception: If transaction creation fails
+        JSON response with wallet balances:
+        {
+            "wallet_address": "...",
+            "balances": {
+                "sol": {"amount": float, "decimals": int, "formatted": str},
+                "usdc": {"amount": float, "decimals": int, "formatted": str},
+                "eurc": {"amount": float, "decimals": int, "formatted": str}
+            }
+        }
     """
     try:
-        # Get configuration from Flask app
-        rpc_url = app.config.get("SOLANA_RPC_URL")
-        distribution_private_key = app.config.get("SOLANA_DISTRIBUTION_PRIVATE_KEY")
-        eurc_mint_address = app.config.get("EURC_TOKEN_MINT")
-
-        # Validate configuration
-        if not rpc_url:
-            raise ValueError("SOLANA_RPC_URL not configured")
-        if not distribution_private_key:
-            raise ValueError("SOLANA_DISTRIBUTION_PRIVATE_KEY not configured")
-        if not eurc_mint_address:
-            raise ValueError("USDC_TOKEN_MINT not configured")
-
-        # Validate inputs
-        if not recipient_address:
-            raise ValueError("Recipient address is required")
-        if amount <= 0:
-            raise ValueError("Amount must be greater than 0")
+        from solana.rpc.api import Client
+        from solders.pubkey import Pubkey
+        from spl.token.instructions import get_associated_token_address
 
         # Initialize Solana client
-        client = Client(rpc_url)
+        solana_rpc_url = app.config.get("SOLANA_RPC_URL", "https://api.mainnet-beta.solana.com")
+        app.logger.info(f"Getting wallet balance for {wallet_address} at {solana_rpc_url}")
+        client = Client(solana_rpc_url)
 
-        # Parse keypairs and addresses
-        distribution_keypair = Keypair.from_base58_string(distribution_private_key)
-        distribution_pubkey = distribution_keypair.pubkey()
-        recipient_pubkey = Pubkey.from_string(recipient_address)
-        eurc_mint = Pubkey.from_string(eurc_mint_address)
+        # Parse wallet address
+        wallet_pubkey = Pubkey.from_string(wallet_address)
 
-        # EURC has 6 decimals
-        eurc_decimals = 6
-        amount_in_smallest_unit = int(amount * (10 ** eurc_decimals))
+        # Get SOL balance
+        sol_balance_response = client.get_balance(wallet_pubkey)
+        sol_balance_lamports = sol_balance_response.value if sol_balance_response.value else 0
+        sol_balance = sol_balance_lamports / 1e9  # Convert lamports to SOL
+
+        # Get token mint addresses
+        usdc_mint = app.config.get("USDC_TOKEN_MINT", "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v")
+        eurc_mint = app.config.get("EURC_TOKEN_MINT", "HzwqbKZw8HxMN6bF2yFZNrht3c2iXXzpKcFu7uBEDKtr")
+
+        usdc_mint_pubkey = Pubkey.from_string(usdc_mint)
+        eurc_mint_pubkey = Pubkey.from_string(eurc_mint)
 
         # Get associated token accounts
-        distribution_token_account = get_associated_token_address(
-            distribution_pubkey,
-            eurc_mint
-        )
-        recipient_token_account = get_associated_token_address(
-            recipient_pubkey,
-            eurc_mint
-        )
+        usdc_token_account = get_associated_token_address(wallet_pubkey, usdc_mint_pubkey)
+        eurc_token_account = get_associated_token_address(wallet_pubkey, eurc_mint_pubkey)
 
-        # Create transaction
-        transaction = Transaction()
+        # Get USDC balance
+        usdc_balance = 0.0
+        try:
+            usdc_account_info = client.get_token_account_balance(usdc_token_account)
+            if usdc_account_info.value:
+                usdc_balance = float(usdc_account_info.value.amount) / (10 ** usdc_account_info.value.decimals)
+        except Exception as e:
+            app.logger.debug(f"USDC account not found or error: {e}")
 
-        # Check if recipient token account exists
-        recipient_account_info = client.get_account_info(recipient_token_account)
+        # Get EURC balance
+        eurc_balance = 0.0
+        try:
+            eurc_account_info = client.get_token_account_balance(eurc_token_account)
+            if eurc_account_info.value:
+                eurc_balance = float(eurc_account_info.value.amount) / (10 ** eurc_account_info.value.decimals)
+        except Exception as e:
+            app.logger.debug(f"EURC account not found or error: {e}")
 
-        # If recipient doesn't have a token account, create it
-        if not recipient_account_info.value:
-            app.logger.info(
-                f"Recipient token account doesn't exist, creating it: {recipient_token_account}"
-            )
-            create_account_ix = create_associated_token_account(
-                payer=distribution_pubkey,
-                owner=recipient_pubkey,
-                mint=eurc_mint,
-            )
-            transaction.add(create_account_ix)
-
-        # Add transfer instruction
-        transfer_ix = transfer_checked(
-            TransferCheckedParams(
-                program_id=TOKEN_PROGRAM_ID,
-                source=distribution_token_account,
-                mint=eurc_mint,
-                dest=recipient_token_account,
-                owner=distribution_pubkey,
-                amount=amount_in_smallest_unit,
-                decimals=eurc_decimals,
-            )
-        )
-        transaction.add(transfer_ix)
-
-        # Get recent blockhash
-        recent_blockhash = client.get_latest_blockhash().value.blockhash
-        transaction.recent_blockhash = recent_blockhash
-        transaction.fee_payer = distribution_pubkey
-
-        # Sign transaction
-        transaction.sign(distribution_keypair)
-
-        # Serialize transaction
-        serialized_transaction = transaction.serialize()
-
-        app.logger.info(
-            f"Created EURC transfer transaction: {amount} EURC to {recipient_address}"
-        )
-
-        return {
-            "status": "success",
-            "message": "Transaction created successfully",
-            "transaction": serialized_transaction.hex(),
-            "details": {
-                "from_address": str(distribution_pubkey),
-                "to_address": recipient_address,
-                "amount_eurc": amount,
-                "amount_lamports": amount_in_smallest_unit,
-                "token_mint": eurc_mint_address,
-                "distribution_token_account": str(distribution_token_account),
-                "recipient_token_account": str(recipient_token_account),
+        response_data = {
+            "wallet_address": wallet_address,
+            "balances": {
+                "sol": {
+                    "amount": sol_balance,
+                    "decimals": 9,
+                    "formatted": f"{sol_balance:.9f}"
+                },
+                "usdc": {
+                    "amount": usdc_balance,
+                    "decimals": 6,
+                    "formatted": f"{usdc_balance:.6f}"
+                },
+                "eurc": {
+                    "amount": eurc_balance,
+                    "decimals": 6,
+                    "formatted": f"{eurc_balance:.6f}"
+                }
             }
         }
 
-    except ValueError as e:
-        app.logger.error(f"Validation error creating EURC transfer: {str(e)}")
-        return {
-            "status": "error",
-            "message": str(e),
-            "transaction": None,
-            "details": None
-        }
-    except Exception as e:
-        app.logger.error(f"Error creating EURC transfer transaction: {str(e)}")
-        return {
-            "status": "error",
-            "message": f"Failed to create transaction: {str(e)}",
-            "transaction": None,
-            "details": None
-        }
-
-
-def send_transaction(serialized_transaction: str) -> Dict[str, Any]:
-    """
-    Send a serialized Solana transaction to the network.
-
-    Args:
-        serialized_transaction: Hex-encoded serialized transaction
-
-    Returns:
-        Dict containing:
-            - status: "success" or "error"
-            - transaction_signature: Transaction signature if successful
-            - message: Status message
-    """
-    try:
-        rpc_url = app.config.get("SOLANA_RPC_URL")
-        if not rpc_url:
-            raise ValueError("SOLANA_RPC_URL not configured")
-
-        client = Client(rpc_url)
-
-        # Deserialize and send transaction
-        transaction_bytes = bytes.fromhex(serialized_transaction)
-        result = client.send_raw_transaction(transaction_bytes)
-
-        app.logger.info(f"Transaction sent: {result.value}")
-
-        return {
-            "status": "success",
-            "transaction_signature": str(result.value),
-            "message": "Transaction sent successfully"
-        }
+        return make_response(response_data, 200)
 
     except Exception as e:
-        app.logger.error(f"Error sending transaction: {str(e)}")
-        return {
-            "status": "error",
-            "transaction_signature": None,
-            "message": f"Failed to send transaction: {str(e)}"
-        }
+        app.logger.exception(f"Error fetching wallet balance for {request.wallet_address}: {e}")
+        return make_response({
+            "error": "Failed to fetch wallet balance",
+            "message": str(e)
+        }, 500)

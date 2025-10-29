@@ -9,6 +9,8 @@ from app.decorators import require_wallet_auth
 from app.forms import EmailForm, User
 from mykobo_py.identity.utils import kyc_rejected, kyc_passed
 
+from app.mod_solana.transaction import get_wallet_balance
+
 bp = Blueprint("user", __name__, url_prefix="/user")
 network = "solana"
 
@@ -18,6 +20,12 @@ network = "solana"
 def dashboard() -> Response:
     wallet_address = request.wallet_address
     service_token = app.config["IDENTITY_SERVICE_CLIENT"].acquire_token()
+    wallet_data = {}
+    try:
+        wallet_data = get_wallet_balance(wallet_address).json
+        print(wallet_data)
+    except Exception as wallet_error:
+        app.logger.exception(f"Could not fetch wallet balance: {wallet_error}")
 
     try:
         app.logger.info(f"Attempting to retrieve user profile with wallet address: {wallet_address}")
@@ -53,10 +61,7 @@ def dashboard() -> Response:
                     wallet_address=wallet_address,
                     user_data=user_data,
                     approved=kyc_passed(user_data.get("kyc_status")),
-                    wallet_balance='100.00 EURC',
-                    eur_balance='0.00',
-                    usd_balance='0.00',
-                    usdc_balance='0.00'
+                    wallet_data=wallet_data
                 )
             )
         except HTTPError as e:
@@ -84,6 +89,13 @@ def dashboard() -> Response:
 def lobby():
     wallet_address = request.wallet_address
     form = EmailForm()
+
+    wallet_data = {}
+    try:
+        wallet_data = get_wallet_balance(wallet_address).json
+        print(wallet_data)
+    except Exception as wallet_error:
+        app.logger.exception(f"Could not fetch wallet balance: {wallet_error}")
 
     if request.method == "POST":
         if form.validate_on_submit():
@@ -185,24 +197,15 @@ def lobby():
                     print(f"{field}: {errors}")
                     flash(f"{field.replace('_', ' ').title()}: {', '.join(errors)}", "danger")
 
-            return make_response(
-                render_template(
-                    "user/lobby.html",
-                    form=form,
-                    wallet_address = wallet_address
-                ),
-                200,
-            )
 
-    else:
-        return make_response(
-            render_template(
-                "user/lobby.html",
-                form=form,
-                wallet_address=wallet_address,
-            ),
-            200,
-        )
+    return make_response(
+        render_template(
+            "user/lobby.html",
+            form=form,
+            wallet_data=wallet_data
+        ),
+        200,
+    )
 
 
 @bp.route("/register", methods=["GET", "POST"])

@@ -28,6 +28,7 @@ RUN poetry install --no-interaction --no-ansi
 COPY app/ ./app/
 COPY boot.sh run.py ./
 COPY retry_worker.py retry_transactions.py entrypoint.sh manage.py run_migrations.py ./
+COPY run_inbox_consumer.sh run_transaction_processor.sh ./
 COPY extract-wagmi-script.sh ./app/
 COPY merge-css.py ./app/
 
@@ -51,7 +52,7 @@ ENV PYTHONUNBUFFERED=1
 EXPOSE 8000
 
 # Make scripts executable
-RUN chmod +x boot.sh entrypoint.sh retry_worker.py retry_transactions.py
+RUN chmod +x boot.sh entrypoint.sh retry_worker.py retry_transactions.py run_inbox_consumer.sh run_transaction_processor.sh
 
 ENTRYPOINT ["/docker-entrypoint.d/env.sh"]
 # Default to running web service, can be overridden with: docker run image worker

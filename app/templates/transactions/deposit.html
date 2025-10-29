@@ -6,27 +6,12 @@
             <!-- Wallet Info Button -->
             <a href="{{ url_for("user.dashboard") }}" class="wallet-info-button">
                 <span class="wallet-address">Welcome back {{ user_data.first_name }} {{ user_data.last_name }}! </span>
-                <span id="wallet-balance" class="wallet-balance">{{ wallet_address[:9] }}...{{ wallet_address[-4:] }}</span>
+                <span id="wallet-balance" class="wallet-balance">{{ wallet_data.wallet_address[:9] }}...{{ wallet_data.wallet_address[-4:] }}</span>
             </a>
 
             <!-- Currency Balance Buttons -->
-            <div class="currency-buttons">
-                <button class="currency-button" disabled>
-                    <div class="currency-icon"><img src="{{ url_for('static', filename='images/solana.svg') }}"
-                                                    alt="Solana"/></div>
-                    <div class="currency-amount" id="eur-balance">{{ wallet_balances.solana_balance }}</div>
-                </button>
-                <a href="{{ url_for('transaction.new', type=kind, asset='eurc') }}" class="currency-button" style="text-decoration: none; color: inherit;" {% if asset|lower == 'eurc' %}disabled{% endif %}>
-                    <div class="currency-icon"><img src="{{ url_for('static', filename='images/eurc_token.svg') }}"
-                                                    alt="EURC"/></div>
-                    <div class="currency-amount" id="usd-balance">{{ wallet_balances.eurc_balance }}</div>
-                </a>
-                <a href="{{ url_for('transaction.new', type=kind, asset='usdc') }}" class="currency-button" style="text-decoration: none; color: inherit;" {% if asset|lower == 'usdc' %}disabled{% endif %}>
-                    <div class="currency-icon"><img src="{{ url_for('static', filename='images/usdc_token.svg') }}"
-                                                    alt="USDC"/></div>
-                    <div class="currency-amount" id="usdc-balance">{{ wallet_balances.usdc_balance }}</div>
-                </a>
-            </div>
+            {% set transacting = True %}
+            {% include "partials/currency_buttons.html" %}
 
             <div class="wallet-info-button" >
                 <h4 id="instructions">Please select the asset you want to transact in</h4>

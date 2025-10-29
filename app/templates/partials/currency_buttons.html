@@ -1,0 +1,40 @@
+{% if transacting %}
+    <div class="currency-buttons">
+        <button class="currency-button" disabled>
+            <div class="currency-icon"><img src="{{ url_for('static', filename='images/solana.svg') }}"
+                                            alt="Solana"/></div>
+            <div class="currency-amount" id="sol-balance">{{ wallet_data.balances.sol.amount }}</div>
+        </button>
+        <a href="{{ url_for('transaction.new', type=kind, asset='eurc') }}" class="currency-button"
+           style="text-decoration: none; color: inherit;" {% if asset|lower == 'eurc' %}disabled{% endif %}>
+            <div class="currency-icon"><img src="{{ url_for('static', filename='images/eurc_token.svg') }}"
+                                            alt="EURC"/></div>
+            <div class="currency-amount" id="eurc-balance">{{ wallet_data.balances.eurc.amount }}</div>
+        </a>
+        <a href="{{ url_for('transaction.new', type=kind, asset='usdc') }}" class="currency-button"
+           style="text-decoration: none; color: inherit;" {% if asset|lower == 'usdc' %}disabled{% endif %}>
+            <div class="currency-icon"><img src="{{ url_for('static', filename='images/usdc_token.svg') }}"
+                                            alt="USDC"/></div>
+            <div class="currency-amount" id="usdc-balance">{{ wallet_data.balances.usdc.amount }}</div>
+        </a>
+    </div>
+
+{% else %}
+    <div class="currency-buttons">
+        <button class="currency-button">
+            <div class="currency-icon"><img src="{{ url_for('static', filename='images/solana.svg') }}"
+                                            alt="Solana"/></div>
+            <div class="currency-amount" id="eur-balance">{{ wallet_data.balances.sol.amount }}</div>
+        </button>
+        <button class="currency-button">
+            <div class="currency-icon"><img src="{{ url_for('static', filename='images/eurc_token.svg') }}"
+                                            alt="EURC"/></div>
+            <div class="currency-amount" id="eurc-balance">{{ wallet_data.balances.eurc.amount }}</div>
+        </button>
+        <button class="currency-button">
+            <div class="currency-icon"><img src="{{ url_for('static', filename='images/usdc_token.svg') }}"
+                                            alt="USDC"/></div>
+            <div class="currency-amount" id="usdc-balance">{{ wallet_data.balances.usdc.amount }}</div>
+        </button>
+    </div>
+{% endif %}

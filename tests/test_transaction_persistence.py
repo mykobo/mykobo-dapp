@@ -17,6 +17,7 @@ class TestTransactionModel:
         """Test creating a Transaction from a ledger payload"""
         with app.app_context():
             # Sample ledger payload
+            external_ref = str(uuid.uuid4())
             ledger_payload = {
                 "meta_data": {
                     "source": "DAPP",
@@ -27,13 +28,13 @@ class TestTransactionModel:
                     "ip_address": "192.168.1.1",
                 },
                 "payload": {
-                    "external_reference": str(uuid.uuid4()),
+                    "external_reference": external_ref,
                     "source": "ANCHOR_SOLANA",
                     "reference": "TX123456",
                     "first_name": "John",
                     "last_name": "Doe",
                     "transaction_type": "deposit",
-                    "status": "pending_payer",
+                    "status": "PENDING_PAYER",
                     "incoming_currency": "USD",
                     "outgoing_currency": "USDC",
                     "value": "100.50",
@@ -52,11 +53,11 @@ class TestTransactionModel:
             )
 
             # Verify fields
+            assert transaction.id == external_ref  # external_reference becomes the id
             assert transaction.reference == "TX123456"
-            assert transaction.external_reference == ledger_payload["payload"]["external_reference"]
             assert transaction.idempotency_key == ledger_payload["meta_data"]["idempotency_key"]
             assert transaction.transaction_type == "deposit"
-            assert transaction.status == "pending_payer"
+            assert transaction.status == "PENDING_PAYER"
             assert transaction.incoming_currency == "USD"
             assert transaction.outgoing_currency == "USDC"
             assert transaction.value == Decimal("100.50")
@@ -76,11 +77,11 @@ class TestTransactionModel:
         """Test converting transaction to dictionary"""
         with app.app_context():
             transaction = Transaction(
+                id=str(uuid.uuid4()),
                 reference="TX123",
-                external_reference="EXT123",
                 idempotency_key="KEY123",
                 transaction_type="withdrawal",
-                status="pending_payee",
+                status="PENDING_PAYEE",
                 incoming_currency="USDC",
                 outgoing_currency="USD",
                 value=Decimal("50.00"),
@@ -111,11 +112,11 @@ class TestTransactionModel:
         """Test transaction string representation"""
         with app.app_context():
             transaction = Transaction(
+                id=str(uuid.uuid4()),
                 reference="TX999",
-                external_reference="EXT999",
                 idempotency_key="KEY999",
                 transaction_type="deposit",
-                status="completed",
+                status="COMPLETED",
                 incoming_currency="EUR",
                 outgoing_currency="EURC",
                 value=Decimal("75.00"),
@@ -128,18 +129,19 @@ class TestTransactionModel:
             repr_str = repr(transaction)
             assert "TX999" in repr_str
             assert "deposit" in repr_str
-            assert "completed" in repr_str
+            assert "COMPLETED" in repr_str
 
     def test_transaction_persistence(self, app):
         """Test saving and retrieving transaction from database"""
         with app.app_context():
-            # Create transaction
+            # Create transaction with explicit UUID
+            tx_id = str(uuid.uuid4())
             transaction = Transaction(
+                id=tx_id,
                 reference=f"TX{uuid.uuid4().hex[:8]}",
-                external_reference=str(uuid.uuid4()),
                 idempotency_key=str(uuid.uuid4()),
                 transaction_type="deposit",
-                status="pending_payer",
+                status="PENDING_PAYER",
                 incoming_currency="USD",
                 outgoing_currency="USDC",
                 value=Decimal("100.00"),
@@ -159,17 +161,17 @@ class TestTransactionModel:
             db.session.add(transaction)
             db.session.commit()
 
-            # Verify it was saved
-            assert transaction.id is not None
+            # Verify it was saved with the correct ID
+            assert transaction.id == tx_id
 
-            # Retrieve from database
+            # Retrieve from database by reference
             retrieved = db.session.query(Transaction).filter_by(
                 reference=transaction.reference
             ).first()
 
             # Verify retrieved transaction
             assert retrieved is not None
-            assert retrieved.id == transaction.id
+            assert retrieved.id == tx_id
             assert retrieved.reference == transaction.reference
             assert retrieved.value == Decimal("100.00")
             assert retrieved.wallet_address == "TESTWALLET"
@@ -178,16 +180,15 @@ class TestTransactionModel:
         """Test that unique constraints are enforced"""
         with app.app_context():
             reference = f"TX{uuid.uuid4().hex[:8]}"
-            external_ref = str(uuid.uuid4())
             idempotency_key = str(uuid.uuid4())
 
             # Create first transaction
             transaction1 = Transaction(
+                id=str(uuid.uuid4()),
                 reference=reference,
-                external_reference=external_ref,
                 idempotency_key=idempotency_key,
                 transaction_type="deposit",
-                status="pending_payer",
+                status="PENDING_PAYER",
                 incoming_currency="USD",
                 outgoing_currency="USDC",
                 value=Decimal("100.00"),
@@ -202,11 +203,11 @@ class TestTransactionModel:
 
             # Try to create duplicate with same reference
             transaction2 = Transaction(
+                id=str(uuid.uuid4()),
                 reference=reference,  # Duplicate reference
-                external_reference=str(uuid.uuid4()),
                 idempotency_key=str(uuid.uuid4()),
                 transaction_type="deposit",
-                status="pending_payer",
+                status="PENDING_PAYER",
                 incoming_currency="USD",
                 outgoing_currency="USDC",
                 value=Decimal("50.00"),
@@ -228,11 +229,11 @@ class TestTransactionModel:
         """Test that timestamps are automatically set"""
         with app.app_context():
             transaction = Transaction(
+                id=str(uuid.uuid4()),
                 reference=f"TX{uuid.uuid4().hex[:8]}",
-                external_reference=str(uuid.uuid4()),
                 idempotency_key=str(uuid.uuid4()),
                 transaction_type="deposit",
-                status="pending_payer",
+                status="PENDING_PAYER",
                 incoming_currency="USD",
                 outgoing_currency="USDC",
                 value=Decimal("100.00"),
@@ -242,9 +243,6 @@ class TestTransactionModel:
                 instruction_type="Transaction",
             )
 
-            # Timestamps should be None before saving
-            assert transaction.id is None
-
             db.session.add(transaction)
             db.session.commit()
 
@@ -253,3 +251,42 @@ class TestTransactionModel:
             assert transaction.updated_at is not None
             assert isinstance(transaction.created_at, datetime)
             assert isinstance(transaction.updated_at, datetime)
+
+    def test_transaction_uuid_as_id(self, app):
+        """Test that transaction ID is a UUID from external_reference"""
+        with app.app_context():
+            external_ref = str(uuid.uuid4())
+            ledger_payload = {
+                "meta_data": {
+                    "idempotency_key": str(uuid.uuid4()),
+                    "instruction_type": "Transaction",
+                    "ip_address": "192.168.1.1",
+                },
+                "payload": {
+                    "external_reference": external_ref,
+                    "source": "ANCHOR_SOLANA",
+                    "reference": "TX_UUID_TEST",
+                    "transaction_type": "WITHDRAWAL",
+                    "status": "PENDING_PAYEE",
+                    "incoming_currency": "EURC",
+                    "outgoing_currency": "EUR",
+                    "value": "50.00",
+                    "fee": "1.50",
+                },
+            }
+
+            transaction = Transaction.from_ledger_payload(
+                ledger_payload=ledger_payload,
+                wallet_address="TEST_WALLET"
+            )
+
+            db.session.add(transaction)
+            db.session.commit()
+
+            # Verify ID equals the external_reference from payload
+            assert transaction.id == external_ref
+
+            # Verify we can retrieve by this UUID
+            retrieved = Transaction.query.get(external_ref)
+            assert retrieved is not None
+            assert retrieved.reference == "TX_UUID_TEST"

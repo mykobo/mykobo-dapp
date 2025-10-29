@@ -65,18 +65,41 @@ def retry_transaction(transaction: Transaction) -> Dict[str, Any]:
         }
     """
     try:
+        # Acquire service token - REQUIRED for sending to queue
+        identity_service = app.config.get("IDENTITY_SERVICE_CLIENT")
+        if not identity_service:
+            error_msg = f"Identity service not configured, cannot retry transaction [{transaction.reference}]"
+            app.logger.error(error_msg)
+            return {
+                'success': False,
+                'message_id': None,
+                'error': error_msg
+            }
+
+        try:
+            service_token = identity_service.acquire_token()
+            app.logger.debug(f"Acquired service token for retry of transaction [{transaction.reference}]")
+        except Exception as e:
+            error_msg = f"Failed to acquire service token for [{transaction.reference}]: {e}"
+            app.logger.error(error_msg)
+            return {
+                'success': False,
+                'message_id': None,
+                'error': error_msg
+            }
+
         # Reconstruct ledger payload from transaction record
         ledger_payload = {
             "meta_data": {
                 "source": "DAPP",
                 "instruction_type": transaction.instruction_type,
                 "created_at": transaction.created_at.strftime("%Y-%m-%dT%H:%M:%SZ"),
-                "token": "retry_token",  # May need to acquire fresh token
+                "token": service_token.token,  # Acquired service token
                 "idempotency_key": transaction.idempotency_key,
                 "ip_address": transaction.ip_address,
             },
             "payload": {
-                "external_reference": transaction.external_reference,
+                "external_reference": transaction.id,
                 "source": transaction.source,
                 "reference": transaction.reference,
                 "first_name": transaction.first_name,

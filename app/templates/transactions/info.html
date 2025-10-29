@@ -5,33 +5,17 @@
     <!-- Wallet Info Button -->
     <a href="{{ url_for("user.dashboard") }}" class="wallet-info-button mb-2">
         <span class="wallet-address">Welcome back {{ user_data.first_name }} {{ user_data.last_name }}! </span>
-        <span id="wallet-balance" class="wallet-balance">{{ wallet_address[:9] }}...{{ wallet_address[-4:] }}</span>
+        <span id="wallet-balance" class="wallet-balance">{{ wallet_data.wallet_address[:9] }}...{{ wallet_data.wallet_address[-4:] }}</span>
     </a>
 
     <!-- Currency Balance Buttons -->
-    <div class="currency-buttons mb-2">
-        <button class="currency-button" disabled>
-            <div class="currency-icon"><img src="{{ url_for('static', filename='images/solana.svg') }}"
-                                            alt="Solana"/></div>
-            <div class="currency-amount" id="eur-balance">{{ wallet_balances.solana_balance }}</div>
-        </button>
-        <a href="{{ url_for('transaction.new', type=kind, asset='eurc') }}" class="currency-button" style="text-decoration: none; color: inherit;" {% if asset|lower == 'eurc' %}disabled{% endif %}>
-            <div class="currency-icon"><img src="{{ url_for('static', filename='images/eurc_token.svg') }}"
-                                            alt="EURC"/></div>
-            <div class="currency-amount" id="usd-balance">{{ wallet_balances.eurc_balance }}</div>
-        </a>
-        <a href="{{ url_for('transaction.new', type=kind, asset='usdc') }}" class="currency-button" style="text-decoration: none; color: inherit;" {% if asset|lower == 'usdc' %}disabled{% endif %}>
-            <div class="currency-icon"><img src="{{ url_for('static', filename='images/usdc_token.svg') }}"
-                                            alt="USDC"/></div>
-            <div class="currency-amount" id="usdc-balance">{{ wallet_balances.usdc_balance }}</div>
-        </a>
-    </div>
+    {% include "partials/currency_buttons.html" %}
 
-    <div class="card card-body rounded-3 mb-4">
+    <div class="card card-body rounded-3 mb-4 mt-4">
         <div class="row">
             {% if transaction_data.transaction_type.lower() == "deposit" %}
                 <span class="display-5">Send Exactly</span><br/>
-                <span class="text-lg-start display-3 pt-1 p-3">{{ transaction_data.value }}</span>
+                <span class="text-lg-start display-3 pt-1 p-3">{{ transaction_data.value | round(2) }}</span>
             {% else %}
                 <span class="display-5">You Receive</span><br/>
                 <span class="text-lg-start display-3 pt-1 p-3">{{ float(transaction_data.value) - float(transaction_data.fee) }}</span>
@@ -101,11 +85,11 @@
 
                 <tr>
                     <td>Fee</td>
-                    <td>{{ transaction_data.fee }}</td>
+                    <td>{{ transaction_data.fee | round(2) }}</td>
                 </tr>
                 <tr>
                     <td>You get</td>
-                    <td class="">{{ (transaction_data.value | float) - (transaction_data.fee | float)  }}</td>
+                    <td class="">{{ (transaction_data.value - transaction_data.fee) | round(2) }}</td>
                 </tr>
                 </tbody>
             </table>

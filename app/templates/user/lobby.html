@@ -5,25 +5,13 @@
         <div class="app-container lobby-container">
             <!-- Wallet Info Button -->
             <button class="wallet-info-button">
-                <span class="wallet-address">{{ wallet_address[:6] }}...{{ wallet_address[-4:] }}</span>
+                <span class="wallet-address">{{ wallet_data.wallet_address[:6] }}...{{ wallet_data.wallet_address[-4:] }}</span>
                 <span id="wallet-balance" class="wallet-balance">{{ wallet_balance }}</span>
             </button>
 
             <!-- Currency Balance Buttons -->
-            <div class="currency-buttons">
-                <button class="currency-button">
-                    <div class="currency-icon"><img src="{{ url_for('static', filename='images/solana.svg') }}" alt="Solana"/></div>
-                    <div class="currency-amount" id="eur-balance">{{ eur_balance }}</div>
-                </button>
-                <button class="currency-button">
-                    <div class="currency-icon"><img src="{{ url_for('static', filename='images/eurc_token.svg') }}" alt="EURC"/></div>
-                    <div class="currency-amount" id="usd-balance">{{ usd_balance }}</div>
-                </button>
-                <button class="currency-button">
-                    <div class="currency-icon"><img src="{{ url_for('static', filename='images/usdc_token.svg') }}" alt="USDC"/></div>
-                    <div class="currency-amount" id="usdc-balance">{{ usdc_balance }}</div>
-                </button>
-            </div>
+            {% include "partials/currency_buttons.html" %}
+
             <form method="POST" action="{{ url_for('user.lobby') }}"
                   id="register-form">
                 {{ form.csrf_token }}

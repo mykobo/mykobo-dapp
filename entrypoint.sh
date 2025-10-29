@@ -1,10 +1,12 @@
 #!/bin/sh
 set -e
 
-# Entrypoint script for running either web app or retry worker
+# Entrypoint script for running different MYKOBO DAPP services
 # Usage:
-#   ./entrypoint.sh web    - Run Flask/Gunicorn web server
-#   ./entrypoint.sh worker - Run retry worker service
+#   ./entrypoint.sh web               - Run Flask/Gunicorn web server
+#   ./entrypoint.sh worker            - Run retry worker service to make sure txs get sent to ledger
+#   ./entrypoint.sh inbox-consumer    - Run inbox consumer (SQS → DB)
+#   ./entrypoint.sh transaction-processor - Run transaction processor (DB → Solana)
 
 SERVICE_TYPE="${1:-web}"
 
@@ -46,9 +48,19 @@ case "${SERVICE_TYPE}" in
         echo "Max retries per run: ${MAX_RETRIES}"
         exec python retry_worker.py --interval "${RETRY_INTERVAL}" --max-retries "${MAX_RETRIES}"
         ;;
+    inbox-consumer)
+        echo "Starting inbox consumer..."
+        echo "Polling SQS and writing to inbox table"
+        exec python -m app.inbox_consumer
+        ;;
+    transaction-processor)
+        echo "Starting transaction processor..."
+        echo "Processing transactions from inbox table"
+        exec python -m app.transaction_processor
+        ;;
     *)
         echo "ERROR: Unknown service type: ${SERVICE_TYPE}"
-        echo "Usage: entrypoint.sh [web|worker]"
+        echo "Usage: entrypoint.sh [web|worker|inbox-consumer|transaction-processor]"
         exit 1
         ;;
 esac

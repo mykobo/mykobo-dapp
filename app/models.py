@@ -3,6 +3,9 @@ Database models for the Flask application.
 """
 from datetime import datetime, UTC
 from decimal import Decimal
+from typing import Dict, Any
+import json
+import uuid
 from app.database import db
 
 
@@ -23,11 +26,10 @@ class Transaction(db.Model):
     __table_args__ = {'schema': 'dapp'}
 
     # Primary key
-    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
 
     # Transaction identifiers
     reference = db.Column(db.String(255), unique=True, nullable=False, index=True)
-    external_reference = db.Column(db.String(255), unique=True, nullable=False, index=True)
     idempotency_key = db.Column(db.String(255), unique=True, nullable=False, index=True)
 
     # Transaction details
@@ -66,7 +68,6 @@ class Transaction(db.Model):
         return {
             'id': self.id,
             'reference': self.reference,
-            'external_reference': self.external_reference,
             'idempotency_key': self.idempotency_key,
             'transaction_type': self.transaction_type,
             'status': self.status,
@@ -113,8 +114,8 @@ class Transaction(db.Model):
             fee = Decimal(fee)
 
         return cls(
+            id=payload.get('external_reference'),
             reference=payload.get('reference'),
-            external_reference=payload.get('external_reference'),
             idempotency_key=meta_data.get('idempotency_key'),
             transaction_type=payload.get('transaction_type'),
             status=payload.get('status'),
@@ -133,3 +134,128 @@ class Transaction(db.Model):
             message_id=message_id,
             queue_sent_at=datetime.now(UTC) if message_id else None,
         )
+
+
+class Inbox(db.Model):
+    """
+    Inbox pattern implementation for storing consumed SQS messages.
+
+    This table acts as a persistent inbox where the SQS consumer writes all
+    incoming messages. The transaction processor then polls this inbox and
+    processes messages, providing better transactional guarantees and
+    separation of concerns.
+
+    Benefits:
+    - Idempotent message consumption (duplicate messages are ignored)
+    - Messages are persisted before processing
+    - Processing can be retried independently of SQS
+    - Better visibility into message processing pipeline
+    - Enables transaction processing across both inbox and transaction tables
+    """
+    __tablename__ = 'inbox'
+    __table_args__ = {'schema': 'dapp'}
+
+    # Primary key
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+
+    # Message identifiers (for idempotency)
+    message_id = db.Column(db.String(255), unique=True, nullable=False, index=True)
+    receipt_handle = db.Column(db.Text, nullable=True)  # SQS receipt handle
+
+    # Message content
+    message_body = db.Column(db.JSON, nullable=False)  # Full message payload
+
+    # Processing status
+    status = db.Column(
+        db.String(50),
+        nullable=False,
+        default='pending',
+        index=True
+    )  # pending, processing, completed, failed
+
+    # Processing metadata
+    processed_at = db.Column(db.DateTime(timezone=True), nullable=True)
+    processing_started_at = db.Column(db.DateTime(timezone=True), nullable=True)
+    retry_count = db.Column(db.Integer, nullable=False, default=0)
+    last_error = db.Column(db.Text, nullable=True)
+
+    # Message metadata (extracted for quick lookup)
+    transaction_reference = db.Column(db.String(255), nullable=True, index=True)
+
+    # Timestamps
+    received_at = db.Column(db.DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))
+    updated_at = db.Column(db.DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
+
+    def __repr__(self):
+        return f'<Inbox {self.id} - {self.transaction_reference} - {self.status}>'
+
+    def to_dict(self):
+        """Convert inbox message to dictionary format."""
+        return {
+            'id': self.id,
+            'message_id': self.message_id,
+            'status': self.status,
+            'transaction_reference': self.transaction_reference,
+            'retry_count': self.retry_count,
+            'last_error': self.last_error,
+            'processed_at': self.processed_at.isoformat() if self.processed_at else None,
+            'received_at': self.received_at.isoformat() if self.received_at else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+    @classmethod
+    def from_sqs_message(cls, message_id: str, message_body: Dict[str, Any], receipt_handle: str = None):
+        """
+        Create an Inbox instance from an SQS message payload.
+
+        Args:
+            message_id: SQS Message ID
+            message_body: Payload dictionary (flat, already extracted from nested SQS message)
+            receipt_handle: SQS receipt handle
+
+        Returns:
+            Inbox instance
+        """
+        # message_body is already the extracted payload (flat structure)
+        # The consumer extracts the payload before calling this method
+        reference = message_body.get('reference')
+
+        return cls(
+            message_id=message_id,
+            receipt_handle=receipt_handle,
+            message_body=message_body,  # Store the payload as-is
+            transaction_reference=reference,
+            status='pending'
+        )
+
+    def mark_processing(self):
+        """Mark message as being processed."""
+        self.status = 'processing'
+        self.processing_started_at = datetime.now(UTC)
+        self.updated_at = datetime.now(UTC)
+
+    def mark_completed(self):
+        """Mark message as successfully processed."""
+        self.status = 'completed'
+        self.processed_at = datetime.now(UTC)
+        self.updated_at = datetime.now(UTC)
+
+    def mark_failed(self, error_message: str):
+        """
+        Mark message as failed.
+
+        Args:
+            error_message: Error message to store
+        """
+        self.status = 'failed'
+        self.last_error = error_message
+        self.retry_count += 1
+        self.updated_at = datetime.now(UTC)
+
+    def reset_for_retry(self):
+        """Reset message status to pending for retry."""
+        self.status = 'pending'
+        self.processing_started_at = None
+        self.updated_at = datetime.now(UTC)

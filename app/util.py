@@ -20,7 +20,7 @@ def get_maximum_transaction_value() -> int:
     return 30000
 
 
-def generate_reference() -> str:
+def generate_reference(prefix: str = "") -> str:
     return f"MYK{int(time())}"
 
 
