@@ -68,7 +68,7 @@ class TestInboxIntegration:
         app.config["TRANSACTION_STATUS_UPDATE_QUEUE_NAME"] = "test-status-update-queue"
         return TransactionProcessor(app)
 
-    def test_complete_inbox_flow(self, app, consumer, processor, mock_sqs_client):
+    def test_complete_inbox_flow(self, app, consumer, processor, mock_sqs_client, mock_identity_service):
         """Test complete flow: SQS -> Inbox -> Transaction Processing"""
         with app.app_context():
             # Step 1: Create a transaction in database (simulates transaction creation)
@@ -121,6 +121,15 @@ class TestInboxIntegration:
             assert inbox_message is not None
             assert inbox_message.status == "pending"
             assert inbox_message.transaction_reference == reference
+
+            # Verify identity service was called for authentication
+            mock_identity_service.acquire_token.assert_called()
+            mock_identity_service.check_scope.assert_called_once()
+
+            # Verify check_scope was called with correct parameters
+            check_scope_call = mock_identity_service.check_scope.call_args
+            assert check_scope_call[0][1] == "sender-token-123"  # Token from message meta_data
+            assert check_scope_call[0][2] == "transaction:admin"  # Scope being checked
 
             # Verify message deleted from SQS
             mock_sqs_client.delete_message.assert_called_once()
@@ -405,6 +414,96 @@ class TestInboxIntegration:
             inbox_message = Inbox.query.filter_by(message_id=message_id).first()
             assert inbox_message.status == "failed"
             assert "not found" in inbox_message.last_error.lower()
+
+    def test_check_scope_mock_is_called(self, app, consumer, mock_sqs_client, mock_identity_service):
+        """Test that check_scope mock is properly called with correct parameters"""
+        with app.app_context():
+            # Create a message with a token
+            message_id = str(uuid.uuid4())
+            reference = "MYK_SCOPE_TEST"
+            sender_token = "test-sender-token-789"
+            message_body = {
+                "meta_data": {
+                    "idempotency_key": message_id,
+                    "token": sender_token,
+                    "source": "MYKOBO_LEDGER"
+                },
+                "payload": {
+                    "reference": reference,
+                    "status": "APPROVED"
+                }
+            }
+            receipt_handle = "receipt-scope-test"
+
+            mock_sqs_client.receive_message.return_value = {
+                receipt_handle: message_body
+            }
+
+            # Consumer processes the message
+            consumer._consume_messages()
+
+            # Verify check_scope was called with correct parameters
+            mock_identity_service.acquire_token.assert_called()
+            mock_identity_service.check_scope.assert_called_once()
+
+            # Verify the exact parameters passed to check_scope
+            check_scope_args = mock_identity_service.check_scope.call_args[0]
+            assert check_scope_args[0].token == "test-integration-token-abc123"  # service_token
+            assert check_scope_args[1] == sender_token  # token from message meta_data
+            assert check_scope_args[2] == "transaction:admin"  # scope being verified
+
+            # Verify message was stored (mock returns authorized by default)
+            inbox_message = Inbox.query.filter_by(message_id=message_id).first()
+            assert inbox_message is not None
+            assert inbox_message.transaction_reference == reference
+
+    def test_unauthorized_message_not_stored(self, app, consumer, mock_sqs_client, mock_identity_service):
+        """Test that unauthorized messages are rejected and NOT stored in inbox"""
+        with app.app_context():
+            # Configure mock to reject authorization
+            mock_check_scope_response = Mock()
+            mock_check_scope_response.ok = True
+            mock_check_scope_response.json = Mock(return_value={
+                "authorised": False,
+                "message": "Unauthorized - invalid token"
+            })
+            mock_identity_service.check_scope = Mock(return_value=mock_check_scope_response)
+
+            # Create a message with an invalid token
+            message_id = str(uuid.uuid4())
+            reference = "MYK_UNAUTHORIZED"
+            message_body = {
+                "meta_data": {
+                    "idempotency_key": message_id,
+                    "token": "invalid-token-123",
+                    "source": "UNKNOWN_SOURCE"
+                },
+                "payload": {
+                    "reference": reference,
+                    "status": "APPROVED"
+                }
+            }
+            receipt_handle = "receipt-unauthorized"
+
+            mock_sqs_client.receive_message.return_value = {
+                receipt_handle: message_body
+            }
+
+            # Consumer processes the message
+            consumer._consume_messages()
+
+            # Verify check_scope was called
+            mock_identity_service.check_scope.assert_called_once()
+
+            # Verify message was NOT stored in inbox (rejected)
+            inbox_message = Inbox.query.filter_by(message_id=message_id).first()
+            assert inbox_message is None
+
+            # Verify message was deleted from queue (discarded)
+            mock_sqs_client.delete_message.assert_called_once_with(
+                consumer.transaction_queue_name,
+                receipt_handle
+            )
 
     def test_fee_calculation_in_flow(self, app, consumer, processor, mock_sqs_client):
         """Test that fee is correctly deducted from transaction value"""

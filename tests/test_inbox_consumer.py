@@ -13,6 +13,25 @@ class TestInboxConsumer:
     """Tests for the InboxConsumer service"""
 
     @pytest.fixture
+    def mock_identity_service(self):
+        """Create a mock identity service client"""
+        mock = Mock()
+        mock_token = Mock()
+        mock_token.token = "test-consumer-token-abc123"
+        mock.acquire_token = Mock(return_value=mock_token)
+
+        # Mock check_scope to return authorized response by default
+        mock_check_scope_response = Mock()
+        mock_check_scope_response.ok = True
+        mock_check_scope_response.json = Mock(return_value={
+            "authorised": True,
+            "message": "Authorized"
+        })
+        mock.check_scope = Mock(return_value=mock_check_scope_response)
+
+        return mock
+
+    @pytest.fixture
     def mock_sqs_client(self):
         """Create a mock SQS client"""
         mock = Mock()
@@ -21,10 +40,11 @@ class TestInboxConsumer:
         return mock
 
     @pytest.fixture
-    def consumer(self, app, mock_sqs_client):
+    def consumer(self, app, mock_sqs_client, mock_identity_service):
         """Create an InboxConsumer instance for testing"""
         app.config["MESSAGE_BUS"] = mock_sqs_client
         app.config["TRANSACTION_QUEUE_NAME"] = "test-queue"
+        app.config["IDENTITY_SERVICE_CLIENT"] = mock_identity_service
         return InboxConsumer(app)
 
     def test_consumer_initialization(self, consumer, mock_sqs_client):
@@ -155,6 +175,7 @@ class TestInboxConsumer:
                 "meta_data": {
                     "idempotency_key": message_id,
                     "event": "NEW_CHAIN_PAYMENT",
+                    "token": "test-token-consume"
                 },
                 "payload": {
                     "reference": "MYK9999999999",
@@ -189,11 +210,17 @@ class TestInboxConsumer:
             message_id_2 = str(uuid.uuid4())
 
             message_body_1 = {
-                "meta_data": {"idempotency_key": message_id_1},
+                "meta_data": {
+                    "idempotency_key": message_id_1,
+                    "token": "test-token-multi-1"
+                },
                 "payload": {"reference": "MYK1111111111", "status": "APPROVED"}
             }
             message_body_2 = {
-                "meta_data": {"idempotency_key": message_id_2},
+                "meta_data": {
+                    "idempotency_key": message_id_2,
+                    "token": "test-token-multi-2"
+                },
                 "payload": {"reference": "MYK2222222222", "status": "APPROVED"}
             }
 
@@ -221,7 +248,10 @@ class TestInboxConsumer:
         """Test that errors in message storage don't delete from SQS"""
         with app.app_context():
             message_body = {
-                "meta_data": {"idempotency_key": str(uuid.uuid4())},
+                "meta_data": {
+                    "idempotency_key": str(uuid.uuid4()),
+                    "token": "test-token-error"
+                },
                 "payload": {"reference": "MYK3333333333", "status": "APPROVED"}
             }
             receipt_handle = "receipt-error-test"

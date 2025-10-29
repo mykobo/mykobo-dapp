@@ -93,6 +93,8 @@ class InboxConsumer:
                     meta_data = message_body["meta_data"]
                     service_token = self.identity_client.acquire_token()
 
+                    # Verify message source authorization
+                    authorized = False
                     try:
                         check_scope_response = self.identity_client.check_scope(
                             service_token,
@@ -102,24 +104,30 @@ class InboxConsumer:
                         if check_scope_response.ok:
                             scope_check_payload = check_scope_response.json()
                             if "authorised" in scope_check_payload and scope_check_payload["authorised"]:
-                                can_proceed = scope_check_payload["authorised"]
+                                authorized = True
                                 self.logger.info(
-                                    f"Source [{meta_data.get('source')}] verified, can proceed {can_proceed}!")
+                                    f"Source [{meta_data.get('source')}] verified, can proceed!")
                             else:
-                                self.logger.warning(scope_check_payload["message"])
-                                self.logger.info("Discarding message...")
+                                self.logger.warning(scope_check_payload.get("message", "Unauthorized"))
+                                self.logger.info("Discarding unauthorized message...")
                                 self._delete_from_sqs(receipt_handle)
+                                continue  # Skip storing this message
 
                         else:
                             self.logger.error(
                                 f"Source [{meta_data.get('source')}] could not be verified")
-                            print(f"CHECK SCOPE RESPONSE {check_scope_response.json()}")
+                            self.logger.error(f"CHECK SCOPE RESPONSE {check_scope_response.json()}")
                             self._delete_from_sqs(receipt_handle)
+                            continue  # Skip storing this message
                     except HTTPError as e:
                         self.logger.error(f"Could not verify source of message: {e}")
+                        self._delete_from_sqs(receipt_handle)
+                        continue  # Skip storing this message
 
-                    self._store_in_inbox(message_id, payload, receipt_handle)
-                    self._delete_from_sqs(receipt_handle)
+                    # Only store if authorized
+                    if authorized:
+                        self._store_in_inbox(message_id, payload, receipt_handle)
+                        self._delete_from_sqs(receipt_handle)
 
                 except Exception as e:
                     self.logger.exception(f"Error storing message in inbox: {e}")
