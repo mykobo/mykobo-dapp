@@ -15,6 +15,32 @@ class TestInboxIntegration:
     """Integration tests for inbox pattern end-to-end flow"""
 
     @pytest.fixture
+    def mock_identity_service(self):
+        """Create a mock identity service client"""
+        mock = Mock()
+        mock_token = Mock()
+        mock_token.token = "test-integration-token-abc123"
+        mock.acquire_token = Mock(return_value=mock_token)
+
+        # Mock check_scope to return authorized response
+        mock_check_scope_response = Mock()
+        mock_check_scope_response.ok = True
+        mock_check_scope_response.json = Mock(return_value={
+            "authorised": True,
+            "message": "Authorized"
+        })
+        mock.check_scope = Mock(return_value=mock_check_scope_response)
+
+        return mock
+
+    @pytest.fixture
+    def mock_message_bus(self):
+        """Create a mock message bus for status updates"""
+        mock = Mock()
+        mock.send_message = Mock(return_value={"MessageId": "test-msg-id-integration"})
+        return mock
+
+    @pytest.fixture
     def mock_sqs_client(self):
         """Create a mock SQS client"""
         mock = Mock()
@@ -23,19 +49,23 @@ class TestInboxIntegration:
         return mock
 
     @pytest.fixture
-    def consumer(self, app, mock_sqs_client):
+    def consumer(self, app, mock_sqs_client, mock_identity_service):
         """Create an InboxConsumer instance"""
         app.config["MESSAGE_BUS"] = mock_sqs_client
         app.config["TRANSACTION_QUEUE_NAME"] = "test-queue"
+        app.config["IDENTITY_SERVICE_CLIENT"] = mock_identity_service
         return InboxConsumer(app)
 
     @pytest.fixture
-    def processor(self, app):
+    def processor(self, app, mock_identity_service, mock_message_bus):
         """Create a TransactionProcessor instance"""
         app.config["SOLANA_RPC_URL"] = "https://api.devnet.solana.com"
         app.config["SOLANA_DISTRIBUTION_PRIVATE_KEY"] = "test-key"
         app.config["EURC_TOKEN_MINT"] = "HzwqbKZw8HxMN6bF2yFZNrht3c2iXXzpKcFu7uBEDKtr"
         app.config["USDC_TOKEN_MINT"] = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+        app.config["IDENTITY_SERVICE_CLIENT"] = mock_identity_service
+        app.config["MESSAGE_BUS"] = mock_message_bus
+        app.config["TRANSACTION_STATUS_UPDATE_QUEUE_NAME"] = "test-status-update-queue"
         return TransactionProcessor(app)
 
     def test_complete_inbox_flow(self, app, consumer, processor, mock_sqs_client):
@@ -68,6 +98,7 @@ class TestInboxIntegration:
                     "idempotency_key": message_id,
                     "event": "NEW_CHAIN_PAYMENT",
                     "source": "MYKOBO_LEDGER",
+                    "token": "sender-token-123"
                 },
                 "payload": {
                     "reference": reference,
@@ -146,7 +177,10 @@ class TestInboxIntegration:
             # Same message delivered twice
             message_id = str(uuid.uuid4())
             message_body = {
-                "meta_data": {"idempotency_key": message_id},
+                "meta_data": {
+                    "idempotency_key": message_id,
+                    "token": "sender-token-456"
+                },
                 "payload": {"reference": reference, "status": "APPROVED"}
             }
 
@@ -200,7 +234,10 @@ class TestInboxIntegration:
 
                 message_id = str(uuid.uuid4())
                 message_body = {
-                    "meta_data": {"idempotency_key": message_id},
+                    "meta_data": {
+                        "idempotency_key": message_id,
+                        "token": f"sender-token-{i}"
+                    },
                     "payload": {"reference": reference, "status": "APPROVED"}
                 }
                 message_bodies.append((f"receipt-{i}", message_body))
@@ -260,7 +297,10 @@ class TestInboxIntegration:
             # Message from ledger
             message_id = str(uuid.uuid4())
             message_body = {
-                "meta_data": {"idempotency_key": message_id},
+                "meta_data": {
+                    "idempotency_key": message_id,
+                    "token": "sender-token-fail"
+                },
                 "payload": {"reference": reference, "status": "APPROVED"}
             }
 
@@ -312,7 +352,10 @@ class TestInboxIntegration:
             # Message from ledger
             message_id = str(uuid.uuid4())
             message_body = {
-                "meta_data": {"idempotency_key": message_id},
+                "meta_data": {
+                    "idempotency_key": message_id,
+                    "token": "sender-token-deposit"
+                },
                 "payload": {"reference": reference, "status": "APPROVED"}
             }
 
@@ -341,7 +384,10 @@ class TestInboxIntegration:
             message_id = str(uuid.uuid4())
             reference = "MYK_NONEXISTENT"
             message_body = {
-                "meta_data": {"idempotency_key": message_id},
+                "meta_data": {
+                    "idempotency_key": message_id,
+                    "token": "sender-token-notfound"
+                },
                 "payload": {"reference": reference, "status": "APPROVED"}
             }
 
@@ -390,7 +436,10 @@ class TestInboxIntegration:
             # Message from ledger
             message_id = str(uuid.uuid4())
             message_body = {
-                "meta_data": {"idempotency_key": message_id},
+                "meta_data": {
+                    "idempotency_key": message_id,
+                    "token": "sender-token-fee"
+                },
                 "payload": {"reference": reference, "status": "APPROVED"}
             }
 
