@@ -2,6 +2,17 @@
 
 <!-- version list -->
 
+## v1.2.2 (2025-10-30)
+
+### Bug Fixes
+
+- Mock identity service client in integration tests
+  ([`433acbc`](https://github.com/mykobo/mykobo-dapp/commit/433acbc980a84e7248c3e99830640bbfca53dd1d))
+
+- Use the correct queueu
+  ([`7ec760f`](https://github.com/mykobo/mykobo-dapp/commit/7ec760f4f9d664dcd3fd74620fd42b6bb2b793b7))
+
+
 ## v1.2.1 (2025-10-29)
 
 ### Bug Fixes
