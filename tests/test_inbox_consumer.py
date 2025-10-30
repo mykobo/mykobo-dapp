@@ -43,7 +43,7 @@ class TestInboxConsumer:
     def consumer(self, app, mock_sqs_client, mock_identity_service):
         """Create an InboxConsumer instance for testing"""
         app.config["MESSAGE_BUS"] = mock_sqs_client
-        app.config["TRANSACTION_QUEUE_NAME"] = "test-queue"
+        app.config["TRANSACTION_STATUS_UPDATE_QUEUE_NAME"] = "test-queue"
         app.config["IDENTITY_SERVICE_CLIENT"] = mock_identity_service
         return InboxConsumer(app)
 

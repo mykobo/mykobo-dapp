@@ -36,7 +36,7 @@ class InboxConsumer:
 
         # Get SQS client from app config
         self.sqs_client = app.config.get("MESSAGE_BUS")
-        self.transaction_queue_name = app.config.get("TRANSACTION_QUEUE_NAME")
+        self.transaction_queue_name = app.config.get("TRANSACTION_STATUS_UPDATE_QUEUE_NAME")
         self.identity_client = app.config.get("IDENTITY_SERVICE_CLIENT")
 
         # Polling configuration
