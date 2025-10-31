@@ -43,7 +43,7 @@ class TestInboxConsumer:
     def consumer(self, app, mock_sqs_client, mock_identity_service):
         """Create an InboxConsumer instance for testing"""
         app.config["MESSAGE_BUS"] = mock_sqs_client
-        app.config["TRANSACTION_STATUS_UPDATE_QUEUE_NAME"] = "test-queue"
+        app.config["NOTIFICATIONS_QUEUE_NAME"] = "test-queue"
         app.config["IDENTITY_SERVICE_CLIENT"] = mock_identity_service
         return InboxConsumer(app)
 
@@ -51,7 +51,7 @@ class TestInboxConsumer:
         """Test that consumer initializes correctly"""
         assert consumer.app is not None
         assert consumer.sqs_client == mock_sqs_client
-        assert consumer.transaction_queue_name == "test-queue"
+        assert consumer.incoming_queue_name == "test-queue"
         assert consumer.running is False
         assert consumer.poll_interval == 5
 

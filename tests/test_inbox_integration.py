@@ -501,7 +501,7 @@ class TestInboxIntegration:
 
             # Verify message was deleted from queue (discarded)
             mock_sqs_client.delete_message.assert_called_once_with(
-                consumer.transaction_queue_name,
+                consumer.incoming_queue_name,
                 receipt_handle
             )
 

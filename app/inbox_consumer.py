@@ -36,7 +36,7 @@ class InboxConsumer:
 
         # Get SQS client from app config
         self.sqs_client = app.config.get("MESSAGE_BUS")
-        self.transaction_queue_name = app.config.get("TRANSACTION_STATUS_UPDATE_QUEUE_NAME")
+        self.incoming_queue_name = app.config.get("NOTIFICATIONS_QUEUE_NAME")
         self.identity_client = app.config.get("IDENTITY_SERVICE_CLIENT")
 
         # Polling configuration
@@ -46,7 +46,7 @@ class InboxConsumer:
         """Start the inbox consumer."""
         self.running = True
         self.logger.info("Starting Inbox Consumer...")
-        self.logger.info(f"Queue: {self.transaction_queue_name}")
+        self.logger.info(f"Queue: {self.incoming_queue_name}")
         self.logger.info(f"Poll interval: {self.poll_interval}s")
 
         # Set up signal handlers for graceful shutdown
@@ -77,7 +77,7 @@ class InboxConsumer:
         """Poll SQS and write messages to inbox table."""
         try:
             # Receive message using mykobo-py SQS client
-            message_data = self.sqs_client.receive_message(self.transaction_queue_name)
+            message_data = self.sqs_client.receive_message(self.incoming_queue_name)
 
             if not message_data:
                 self.logger.debug("No messages received")
@@ -214,7 +214,7 @@ class InboxConsumer:
         """
         try:
             self.sqs_client.delete_message(
-                self.transaction_queue_name,
+                self.incoming_queue_name,
                 receipt_handle
             )
             self.logger.debug(f"Deleted message from SQS: {receipt_handle[:20]}...")
