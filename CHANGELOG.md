@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v1.2.4 (2025-10-31)
+
+### Bug Fixes
+
+- Correct notification queuer for inbox
+  ([`74d65d1`](https://github.com/mykobo/mykobo-dapp/commit/74d65d1f3f5aba5c519b24f0f89ff46fce692526))
+
+### Chores
+
+- Log out ledger payload for token
+  ([`709962f`](https://github.com/mykobo/mykobo-dapp/commit/709962f370c5cbc12ec5a56036ba9f0b2bf5e0e6))
+
+
 ## v1.2.3 (2025-10-31)
 
 ### Bug Fixes
