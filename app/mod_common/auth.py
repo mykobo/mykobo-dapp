@@ -12,6 +12,9 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 import base58
 
+from app.database import db
+from app.models import Nonce
+
 limiter = Limiter(
     key_func=get_remote_address,
     default_limits=["200 per day", "50 per hour"]
@@ -19,8 +22,6 @@ limiter = Limiter(
 
 auth_bp = Blueprint('auth', __name__, url_prefix='/auth')
 
-# In-memory nonce store (use Redis in production)
-nonce_store = {}
 TTL_IN_SECONDS = 300 # 5 minutes
 
 def generate_auth_challenge(wallet_address: str, ttl_in_seconds: int = TTL_IN_SECONDS) -> Dict[str, str]:
@@ -35,20 +36,26 @@ def generate_auth_challenge(wallet_address: str, ttl_in_seconds: int = TTL_IN_SE
         Dict with nonce and message to sign
     """
     # Generate cryptographically secure nonce
-    nonce = secrets.token_urlsafe(32)
+    nonce_value = secrets.token_urlsafe(32)
     timestamp = int(time.time())
 
-    # Store nonce with expiration (5 minutes)
-    nonce_store[nonce] = {
-        'wallet_address': wallet_address,
-        'expires_at': timestamp + ttl_in_seconds,
-        'used': False
-    }
+    # Create nonce record in database
+    expires_at = datetime.fromtimestamp(timestamp + ttl_in_seconds, tz=UTC)
+    nonce_record = Nonce(
+        nonce=nonce_value,
+        wallet_address=wallet_address,
+        expires_at=expires_at,
+        used=False
+    )
+
+    db.session.add(nonce_record)
+    db.session.commit()
+
     # Message to sign - includes timestamp to prevent replay attacks
-    message = f"Sign this message to authenticate with MYKOBO DAPP.\n\nNonce: {nonce}\nTimestamp: {timestamp}"
+    message = f"Sign this message to authenticate with MYKOBO DAPP.\n\nNonce: {nonce_value}\nTimestamp: {timestamp}"
 
     return {
-        'nonce': nonce,
+        'nonce': nonce_value,
         'message': message,
         'timestamp': timestamp
     }
@@ -65,27 +72,30 @@ def verify_wallet_signature(
         (is_valid, error_message)
     """
     try:
-        # Check nonce exists and is valid
-        if nonce not in nonce_store:
+        # Check nonce exists in database
+        nonce_record = Nonce.query.filter_by(nonce=nonce).first()
+
+        if not nonce_record:
             return False, "Invalid or expired nonce"
 
-        nonce_data = nonce_store[nonce]
-
         # Check if already used (prevent replay attacks)
-        if nonce_data['used']:
+        if nonce_record.used:
             return False, "Nonce already used"
 
         # Check expiration
-        if time.time() > nonce_data['expires_at']:
-            del nonce_store[nonce]
+        if nonce_record.is_expired():
+            db.session.delete(nonce_record)
+            db.session.commit()
             return False, "Nonce expired"
 
         # Check wallet address matches
-        if nonce_data['wallet_address'] != wallet_address:
+        if nonce_record.wallet_address != wallet_address:
             return False, "Wallet address mismatch"
 
         # Reconstruct the message that was signed
-        message = f"Sign this message to authenticate with MYKOBO DAPP.\n\nNonce: {nonce}\nTimestamp: {nonce_data['expires_at'] - 300}"
+        # Calculate timestamp from expires_at (expires_at = timestamp + TTL)
+        original_timestamp = int(nonce_record.expires_at.timestamp()) - TTL_IN_SECONDS
+        message = f"Sign this message to authenticate with MYKOBO DAPP.\n\nNonce: {nonce}\nTimestamp: {original_timestamp}"
 
         # Detect wallet type based on address format
         is_solana = not wallet_address.startswith('0x')
@@ -113,29 +123,35 @@ def verify_wallet_signature(
             )
 
         # Mark nonce as used
-        nonce_store[nonce]['used'] = True
+        nonce_record.mark_used()
+        db.session.commit()
 
         return True, None
 
     except Exception as e:
+        db.session.rollback()
         return False, f"Signature verification failed: {str(e)}"
 
 def cleanup_expired_nonces():
     """
-    Remove expired nonces from store.
+    Remove expired nonces from database.
 
     Returns:
         int: Number of nonces removed
     """
-    current_time = time.time()
-    expired = [
-        nonce for nonce, data in nonce_store.items()
-        if current_time > data['expires_at']
-    ]
-    for nonce in expired:
-        del nonce_store[nonce]
+    # Get all nonces and check expiry using the model's is_expired method
+    all_nonces = Nonce.query.all()
+    expired_nonces = [n for n in all_nonces if n.is_expired()]
+    count = len(expired_nonces)
 
-    return len(expired)
+    # Delete expired nonces
+    for nonce in expired_nonces:
+        db.session.delete(nonce)
+
+    if count > 0:
+        db.session.commit()
+
+    return count
 
 @auth_bp.route('/auth/challenge', methods=['POST'])
 @limiter.limit("5 per minute")
@@ -242,19 +258,18 @@ def get_auth_stats():
     Returns nonce store statistics before and after cleanup.
     """
     # Get stats before cleanup
-    total_nonces = len(nonce_store)
-    used_nonces = sum(1 for data in nonce_store.values() if data['used'])
+    total_nonces = Nonce.query.count()
+    used_nonces = Nonce.query.filter_by(used=True).count()
     unused_nonces = total_nonces - used_nonces
 
-    current_time = time.time()
-    expired_nonces = sum(
-        1 for data in nonce_store.values()
-        if current_time > data['expires_at']
-    )
+    # Count expired nonces using the model's is_expired method
+    all_nonces = Nonce.query.all()
+    expired_nonces = sum(1 for n in all_nonces if n.is_expired())
 
     # Perform cleanup
     cleaned = cleanup_expired_nonces()
 
+    current_time = datetime.now(UTC)
     return jsonify({
         'before_cleanup': {
             'total': total_nonces,
@@ -263,8 +278,8 @@ def get_auth_stats():
             'expired': expired_nonces
         },
         'after_cleanup': {
-            'total': len(nonce_store),
+            'total': Nonce.query.count(),
             'cleaned': cleaned
         },
-        'timestamp': current_time
+        'timestamp': current_time.timestamp()
     }), 200

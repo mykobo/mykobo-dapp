@@ -259,3 +259,65 @@ class Inbox(db.Model):
         self.status = 'pending'
         self.processing_started_at = None
         self.updated_at = datetime.now(UTC)
+
+
+class Nonce(db.Model):
+    """
+    Model for storing authentication nonces.
+
+    Nonces are used for wallet signature authentication to prevent replay attacks.
+    Each nonce is single-use and has an expiration time.
+    """
+    __tablename__ = 'nonces'
+    __table_args__ = {'schema': 'dapp'}
+
+    # Primary key
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+
+    # Nonce value (unique)
+    nonce = db.Column(db.String(255), unique=True, nullable=False, index=True)
+
+    # Associated wallet address
+    wallet_address = db.Column(db.String(255), nullable=False, index=True)
+
+    # Expiration timestamp
+    expires_at = db.Column(db.DateTime(timezone=True), nullable=False, index=True)
+
+    # Usage tracking
+    used = db.Column(db.Boolean, nullable=False, default=False)
+    used_at = db.Column(db.DateTime(timezone=True), nullable=True)
+
+    # Timestamps
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))
+
+    def __repr__(self):
+        return f'<Nonce {self.nonce[:8]}... - {self.wallet_address[:8]}... - used={self.used}>'
+
+    def is_expired(self) -> bool:
+        """Check if nonce has expired."""
+        # Ensure both datetimes have timezone info for comparison
+        current_time = datetime.now(UTC)
+        expires_at = self.expires_at
+
+        # If expires_at is naive (SQLite), make it aware
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=UTC)
+
+        return current_time > expires_at
+
+    def mark_used(self):
+        """Mark nonce as used."""
+        self.used = True
+        self.used_at = datetime.now(UTC)
+
+    def to_dict(self):
+        """Convert nonce to dictionary format."""
+        return {
+            'id': self.id,
+            'nonce': self.nonce,
+            'wallet_address': self.wallet_address,
+            'expires_at': self.expires_at.isoformat() if self.expires_at else None,
+            'used': self.used,
+            'used_at': self.used_at.isoformat() if self.used_at else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+        }

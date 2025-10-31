@@ -9,7 +9,6 @@ import pytest
 os.environ['DATABASE_URL'] = 'sqlite:///:memory:'
 
 from app import create_app
-from app.mod_common.auth import nonce_store
 from app.database import db as _db
 
 
@@ -60,9 +59,6 @@ def app():
         connection = connection.execution_options(schema_translate_map={"dapp": None})
         _db.metadata.drop_all(bind=connection)
         connection.close()
-
-    # Cleanup nonce store
-    nonce_store.clear()
 
 
 @pytest.fixture
