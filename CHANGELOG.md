@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.2.3 (2025-10-31)
+
+### Bug Fixes
+
+- Nonce to database
+  ([`66cc9fc`](https://github.com/mykobo/mykobo-dapp/commit/66cc9fce7f10b4fedcfb35752207e18ecc06eadd))
+
+
 ## v1.2.2 (2025-10-30)
 
 ### Bug Fixes
