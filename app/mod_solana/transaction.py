@@ -130,6 +130,8 @@ def new() -> Response:
                     ),
                 },
             }
+
+            app.logger.debug(ledger_payload)
             # Create and save database record BEFORE sending to queue
             # This allows us to retry failed queue sends
             transaction_record = TransactionModel.from_ledger_payload(
