@@ -423,10 +423,10 @@ except:
 
 ## Documentation References
 
-- [FINAL_IMPLEMENTATION_SUMMARY.md](./FINAL_IMPLEMENTATION_SUMMARY.md) - Complete system documentation
-- [TRANSACTION_IDENTIFIERS.md](./TRANSACTION_IDENTIFIERS.md) - ID strategy
-- [INBOX_PATTERN_SUMMARY.md](./INBOX_PATTERN_SUMMARY.md) - Inbox pattern details
-- [TRANSACTION_PROCESSOR.md](./TRANSACTION_PROCESSOR.md) - Processor documentation
+- [FINAL_IMPLEMENTATION_SUMMARY.md](FINAL_IMPLEMENTATION_SUMMARY.md) - Complete system documentation
+- [TRANSACTION_IDENTIFIERS.md](TRANSACTION_IDENTIFIERS.md) - ID strategy
+- [INBOX_PATTERN_SUMMARY.md](INBOX_PATTERN_SUMMARY.md) - Inbox pattern details
+- [TRANSACTION_PROCESSOR.md](TRANSACTION_PROCESSOR.md) - Processor documentation
 
 ## Success Criteria
 
