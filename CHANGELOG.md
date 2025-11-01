@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.4.1 (2025-11-01)
+
+### Bug Fixes
+
+- Pagination styling
+  ([`b586ba6`](https://github.com/mykobo/mykobo-dapp/commit/b586ba6bd158682ee35af4ff9900c068ad71ac19))
+
+
 ## v1.4.0 (2025-11-01)
 
 ### Features
