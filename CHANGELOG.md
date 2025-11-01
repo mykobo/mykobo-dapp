@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.3.0 (2025-11-01)
+
+### Features
+
+- Correcting SOL transaction, and adding memo
+  ([`73a41d9`](https://github.com/mykobo/mykobo-dapp/commit/73a41d9fb3a2da374e38ec3e8e623fa979c1474b))
+
+
 ## v1.2.7 (2025-11-01)
 
 ### Bug Fixes
