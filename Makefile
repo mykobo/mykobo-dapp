@@ -5,8 +5,14 @@ build:
 	cp -r ./wallet-connect/static/js ./app/static
 	cp -r ./wallet-connect/static/css ./app/static
 
-run:
+run_web:
 	source .venv/bin/activate && HOSTNAME="127.0.0.1" ENV=local SERVICE_PORT=5001 ./boot.sh
+
+run_transaction_processor:
+	source .venv/bin/activate && ./entrypoint.sh transaction-processor
+
+run_consumer:
+	source .venv/bin/activate && ./entrypoint.sh inbox-consumer
 
 release:
 	semantic-release version --changelog

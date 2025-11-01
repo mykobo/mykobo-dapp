@@ -15,9 +15,16 @@ import signal
 import sys
 import uuid
 from datetime import datetime, UTC
-from typing import Dict, Any
+from typing import Dict, Any, Optional, Union
 from flask import Flask
-from mykobo_py.message_bus import PaymentPayload, MessageBusMessage, InstructionType
+from mykobo_py.message_bus import (
+    PaymentPayload,
+    StatusUpdatePayload,
+    CorrectionPayload,
+    MessageBusMessage,
+    InstructionType
+)
+from mykobo_py.message_bus.models.message import TransactionType
 
 from app.database import db
 from app.models import Transaction, Inbox
@@ -220,8 +227,10 @@ class TransactionProcessor:
             True if transaction should be processed
         """
         transaction_status = transaction.status.upper()
-        if transaction_status == 'PENDING_ANCHOR':
+        if transaction.transaction_type == "DEPOSIT" and transaction_status == 'PENDING_ANCHOR':
             # Check if message status indicates the transaction is approved and ready
+            return message_status in self.actionable_statuses
+        elif transaction.transaction_type == "WITHDRAW" and transaction_status == 'PENDING_PAYEE':
             return message_status in self.actionable_statuses
 
         return False
@@ -247,7 +256,7 @@ class TransactionProcessor:
             incoming_currency = transaction.incoming_currency
 
             self.logger.info(
-                f"Processing withdraw [{reference}]: "
+                f"Processing {transaction.transaction_type} [{reference}]: "
                 f"{value} {incoming_currency} -> {outgoing_currency}, "
                 f"Fee: {fee}, Net: {value - fee}"
             )
@@ -276,7 +285,8 @@ class TransactionProcessor:
                 recipient_address=wallet_address,
                 amount=float(net_amount),
                 token_mint=token_mint,
-                currency=outgoing_currency
+                currency=outgoing_currency,
+                memo=reference
             )
 
             if tx_result['status'] == 'success':
@@ -289,14 +299,34 @@ class TransactionProcessor:
                 # Update transaction record in database (already in app context)
                 transaction.status = 'COMPLETED'
                 transaction.updated_at = datetime.now(UTC)
-                # TODO: Add a field to store Solana transaction signature
-                # transaction.solana_tx_signature = solana_signature
+                transaction.solana_tx_signature = solana_signature
                 db.session.commit()
                 self.logger.info(f"Updated transaction [{reference}] status to COMPLETED")
 
-                # Send status update message to queue
-                self._send_status_update(transaction, solana_signature)
+                # Send payment message to queue
+                payment_payload = PaymentPayload(
+                    external_reference=solana_signature,
+                    payer_name=f"{transaction.first_name} {transaction.last_name}",
+                    currency=transaction.outgoing_currency,
+                    value=f"{float(transaction.value - transaction.fee)}",
+                    source="CHAIN_SOLANA",
+                    reference=transaction.reference,
+                    bank_account_number=None
+                )
+                self._send_status_update(payment_payload, transaction.reference)
             else:
+                # Update transaction record in database (already in app context)
+                transaction.status = 'FAILED'
+                transaction.updated_at = datetime.now(UTC)
+                db.session.commit()
+
+                # Send status update message to queue
+                status_update_payload = StatusUpdatePayload(
+                    reference=transaction.reference,
+                    status='FAILED',
+                    message=f"Failed to create Solana transaction: {tx_result.get('message')}"
+                )
+                self._send_status_update(status_update_payload, transaction.reference)
                 raise Exception(f"Failed to create Solana transaction: {tx_result.get('message')}")
 
         except Exception as e:
@@ -330,7 +360,8 @@ class TransactionProcessor:
             recipient_address: str,
             amount: float,
             token_mint: str,
-            currency: str
+            currency: str,
+            memo: str = None
     ) -> Dict[str, Any]:
         """
         Create and send a Solana token transfer transaction.
@@ -340,6 +371,7 @@ class TransactionProcessor:
             amount: Amount to transfer (in token units)
             token_mint: Token mint address
             currency: Currency code for logging
+            memo: Optional memo text to include in transaction (e.g., transaction reference)
 
         Returns:
             Dict with transaction result
@@ -349,6 +381,8 @@ class TransactionProcessor:
             from solders.keypair import Keypair
             from solders.pubkey import Pubkey
             from solders.transaction import Transaction as SolanaTransaction
+            from solders.instruction import Instruction
+            from solders.system_program import ID as SYSTEM_PROGRAM_ID
             from spl.token.instructions import (
                 get_associated_token_address,
                 create_associated_token_account,
@@ -356,10 +390,8 @@ class TransactionProcessor:
                 TransferCheckedParams,
             )
             from spl.token.constants import TOKEN_PROGRAM_ID
-
-            self.logger.info(
-                f"Creating Solana transaction: {amount} {currency} to {recipient_address}"
-            )
+            from spl.memo.constants import MEMO_PROGRAM_ID
+            from spl.memo.instructions import MemoParams, create_memo
 
             # Initialize Solana client
             client = Client(self.solana_rpc_url)
@@ -369,6 +401,10 @@ class TransactionProcessor:
             distribution_pubkey = distribution_keypair.pubkey()
             recipient_pubkey = Pubkey.from_string(recipient_address)
             mint_pubkey = Pubkey.from_string(token_mint)
+
+            self.logger.info(
+                f"Creating Solana transaction: {amount} {currency} {distribution_pubkey} -> {recipient_address} on {self.solana_rpc_url}"
+            )
 
             # Token has 6 decimals
             decimals = 6
@@ -384,11 +420,23 @@ class TransactionProcessor:
                 mint_pubkey
             )
 
-            # Create transaction
-            transaction = SolanaTransaction()
-
             # Check if recipient token account exists
             recipient_account_info = client.get_account_info(recipient_token_account)
+
+            # Build instructions list
+            instructions = []
+
+            # Add memo instruction if memo is provided
+            if memo:
+                self.logger.info(f"Adding memo to transaction: {memo}")
+                memo_ix = create_memo(
+                    MemoParams(
+                        program_id=MEMO_PROGRAM_ID,
+                        signer=distribution_pubkey,
+                        message=memo.encode('utf-8')
+                    )
+                )
+                instructions.append(memo_ix)
 
             # If recipient doesn't have a token account, create it
             if not recipient_account_info.value:
@@ -400,7 +448,7 @@ class TransactionProcessor:
                     owner=recipient_pubkey,
                     mint=mint_pubkey,
                 )
-                transaction.add(create_account_ix)
+                instructions.append(create_account_ix)
 
             # Add transfer instruction
             transfer_ix = transfer_checked(
@@ -414,18 +462,22 @@ class TransactionProcessor:
                     decimals=decimals,
                 )
             )
-            transaction.add(transfer_ix)
+            instructions.append(transfer_ix)
 
             # Get recent blockhash
             recent_blockhash = client.get_latest_blockhash().value.blockhash
-            transaction.recent_blockhash = recent_blockhash
-            transaction.fee_payer = distribution_pubkey
 
-            # Sign transaction
-            transaction.sign(distribution_keypair)
+            # Create transaction with instructions and payer
+            transaction = SolanaTransaction.new_with_payer(
+                instructions,
+                distribution_pubkey
+            )
 
-            # Send transaction
-            result = client.send_raw_transaction(transaction.serialize())
+            # Sign transaction with recent blockhash
+            transaction.sign([distribution_keypair], recent_blockhash)
+
+            # Send transaction (serialize using bytes())
+            result = client.send_raw_transaction(bytes(transaction))
 
             self.logger.info(f"Solana transaction sent: {result.value}")
 
@@ -451,24 +503,37 @@ class TransactionProcessor:
                 "details": None
             }
 
-    def _send_status_update(self, transaction: Transaction, solana_signature: str):
+    def _send_status_update(
+        self,
+        payload: Union[PaymentPayload, StatusUpdatePayload, CorrectionPayload],
+        reference: Optional[str] = None
+    ):
         """
-        Send payment message to queue for completed transactions.
+        Send status update message to queue.
+
+        This method accepts different payload types:
+        - PaymentPayload: For payment confirmations (PAYMENT instruction)
+        - StatusUpdatePayload: For status updates (STATUS_UPDATE instruction)
+        - CorrectionPayload: For corrections (CORRECTION instruction)
 
         Args:
-            transaction: Transaction model instance
-            solana_signature: Solana transaction signature
+            payload: The payload to send (PaymentPayload, StatusUpdatePayload, or CorrectionPayload)
+            reference: Optional transaction reference for logging (extracted from payload if not provided)
         """
         try:
+            # Extract reference for logging
+            if reference is None:
+                reference = getattr(payload, 'reference', 'UNKNOWN')
+
             if not self.message_bus or not self.status_update_queue_name:
                 self.logger.warning(
-                    f"Status update queue not configured, skipping status update for [{transaction.reference}]"
+                    f"Status update queue not configured, skipping status update for [{reference}]"
                 )
                 return
 
             # Acquire service token for authentication - REQUIRED
             if not self.identity_service:
-                error_msg = f"Identity service not configured, cannot send status update for [{transaction.reference}]"
+                error_msg = f"Identity service not configured, cannot send status update for [{reference}]"
                 self.logger.error(error_msg)
                 raise ValueError(error_msg)
 
@@ -476,55 +541,58 @@ class TransactionProcessor:
                 service_token = self.identity_service.acquire_token()
                 self.logger.debug("Acquired service token for status update")
             except Exception as e:
-                error_msg = f"Failed to acquire service token for [{transaction.reference}]: {e}"
+                error_msg = f"Failed to acquire service token for [{reference}]: {e}"
                 self.logger.error(error_msg)
                 raise ValueError(error_msg) from e
 
-            # Construct payment message
-            payment_payload = PaymentPayload(
-                external_reference=solana_signature,
-                payer_name=f"{transaction.first_name} {transaction.last_name}",
-                currency=transaction.outgoing_currency,
-                value=f"{float(transaction.value - transaction.fee)}",
-                source="CHAIN_SOLANA",
-                reference=transaction.reference,
-                bank_account_number=None
-            )
+            # Determine instruction type based on payload type
+            if isinstance(payload, PaymentPayload):
+                instruction_type = InstructionType.PAYMENT
+                message_type = "payment"
+            elif isinstance(payload, StatusUpdatePayload):
+                instruction_type = InstructionType.STATUS_UPDATE
+                message_type = "status update"
+            elif isinstance(payload, CorrectionPayload):
+                instruction_type = InstructionType.CORRECTION
+                message_type = "correction"
+            else:
+                raise ValueError(f"Unsupported payload type: {type(payload)}")
 
-            payment_message = MessageBusMessage.create(
+            # Create message
+            message = MessageBusMessage.create(
                 source="MYKOBO_DAPP",
-                instruction_type=InstructionType.PAYMENT,
-                payload=payment_payload,
+                instruction_type=instruction_type,
+                payload=payload,
                 service_token=service_token.token,
                 idempotency_key=None
             )
 
-            # Send payment message to status update queue
+            # Send message to status update queue
             self.logger.info(
-                f"Sending payment message for [{transaction.reference}] to queue: {self.status_update_queue_name}"
+                f"Sending {message_type} message for [{reference}] to queue: {self.status_update_queue_name}"
             )
 
             response = self.message_bus.send_message(
-                payment_message,
+                message,
                 self.status_update_queue_name,
                 "DAPP.transaction_processor"
             )
 
             self.logger.info(
-                f"Payment message sent for [{transaction.reference}]: Message ID: {response.get('MessageId')}"
+                f"{message_type.capitalize()} message sent for [{reference}]: Message ID: {response.get('MessageId')}"
             )
 
         except ValueError as e:
             # ValueError indicates a configuration or authentication issue (missing identity service or token)
             # These are critical errors that should fail the transaction processing
             self.logger.exception(
-                f"Critical error sending status update for [{transaction.reference}]: {e}"
+                f"Critical error sending status update for [{reference}]: {e}"
             )
             raise
         except Exception as e:
             # Other exceptions (network errors, etc.) shouldn't fail the transaction processing
             self.logger.exception(
-                f"Error sending status update for [{transaction.reference}]: {e}"
+                f"Error sending status update for [{reference}]: {e}"
             )
             # Don't raise - non-critical status update failures shouldn't fail the transaction processing
 

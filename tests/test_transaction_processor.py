@@ -8,6 +8,7 @@ import pytest
 from app.transaction_processor import TransactionProcessor
 from app.models import Transaction, Inbox
 from app.database import db
+from mykobo_py.message_bus import PaymentPayload, StatusUpdatePayload, CorrectionPayload
 
 
 class TestTransactionProcessor:
@@ -70,14 +71,14 @@ class TestTransactionProcessor:
             assert inbox_message.status == "COMPLETED"
 
     def test_should_process_transaction_approved_withdrawal(self, processor, app):
-        """Test that PENDING_ANCHOR WITHDRAWAL transactions with APPROVED status are processed"""
+        """Test that PENDING_PAYEE WITHDRAW transactions with APPROVED status are processed"""
         with app.app_context():
             transaction = Transaction(
                 id=str(uuid.uuid4()),
                 reference="MYK1234567890",
                 idempotency_key=str(uuid.uuid4()),
-                transaction_type="WITHDRAWAL",
-                status="PENDING_ANCHOR",  # Must be PENDING_ANCHOR
+                transaction_type="WITHDRAW",
+                status="PENDING_PAYEE",  # WITHDRAW requires PENDING_PAYEE status
                 incoming_currency="EUR",
                 outgoing_currency="EURC",
                 value=Decimal("100.00"),
@@ -93,15 +94,15 @@ class TestTransactionProcessor:
             # Should process this transaction when message status is APPROVED
             assert processor._should_process_transaction(transaction, "APPROVED") is True
 
-    def test_should_not_process_deposit(self, processor, app):
-        """Test that DEPOSIT transactions are not processed"""
+    def test_should_process_deposit(self, processor, app):
+        """Test that DEPOSIT transactions with PENDING_ANCHOR status are processed"""
         with app.app_context():
             transaction = Transaction(
                 id=str(uuid.uuid4()),
                 reference="MYK1111111111",
                 idempotency_key=str(uuid.uuid4()),
                 transaction_type="DEPOSIT",
-                status="APPROVED",
+                status="PENDING_ANCHOR",
                 incoming_currency="USD",
                 outgoing_currency="USDC",
                 value=Decimal("50.00"),
@@ -111,18 +112,19 @@ class TestTransactionProcessor:
                 instruction_type="Transaction",
             )
 
-            # Should NOT process deposits
-            assert processor._should_process_transaction(transaction, "APPROVED") is False
+            # Should process deposits when status is PENDING_ANCHOR and message is APPROVED
+            assert processor._should_process_transaction(transaction, "APPROVED") is True
 
-    def test_should_not_process_non_approved_status(self, processor, app):
-        """Test that non-APPROVED statuses are not processed"""
+    def test_should_not_process_wrong_transaction_status(self, processor, app):
+        """Test that transactions with wrong status are not processed"""
         with app.app_context():
+            # Test 1: WITHDRAW with wrong status (PENDING_ANCHOR instead of PENDING_PAYEE)
             transaction = Transaction(
                 id=str(uuid.uuid4()),
                 reference="MYK2222222222",
                 idempotency_key=str(uuid.uuid4()),
-                transaction_type="WITHDRAWAL",
-                status="PENDING_PAYEE",
+                transaction_type="WITHDRAW",
+                status="PENDING_ANCHOR",
                 incoming_currency="EUR",
                 outgoing_currency="EURC",
                 value=Decimal("75.00"),
@@ -132,7 +134,12 @@ class TestTransactionProcessor:
                 instruction_type="Transaction",
             )
 
-            # Should NOT process pending status
+            # Should NOT process WITHDRAW in PENDING_ANCHOR status
+            assert processor._should_process_transaction(transaction, "APPROVED") is False
+
+            # Test 2: WITHDRAW with correct status but wrong message status
+            transaction.status = "PENDING_PAYEE"
+            # Should NOT process when message is not APPROVED
             assert processor._should_process_transaction(transaction, "pending_payee") is False
 
     def test_calculate_net_amount(self, processor, app):
@@ -223,7 +230,7 @@ class TestTransactionProcessor:
                 reference="MYK9999999999",
                 idempotency_key=str(uuid.uuid4()),
                 transaction_type="WITHDRAW",
-                status="PENDING_ANCHOR",  # Must be PENDING_ANCHOR
+                status="PENDING_PAYEE",  # WITHDRAW requires PENDING_PAYEE
                 incoming_currency="EUR",
                 outgoing_currency="EURC",
                 value=Decimal("100.00"),
@@ -285,7 +292,7 @@ class TestTransactionProcessor:
                     reference=reference,
                     idempotency_key=str(uuid.uuid4()),
                     transaction_type="WITHDRAW",
-                    status="PENDING_ANCHOR",  # Must be PENDING_ANCHOR
+                    status="PENDING_PAYEE",  # WITHDRAW requires PENDING_PAYEE
                     incoming_currency="EUR",
                     outgoing_currency="EURC",
                     value=Decimal("50.00"),
@@ -348,7 +355,7 @@ class TestTransactionProcessor:
                 reference="MYK8888888888",
                 idempotency_key=str(uuid.uuid4()),
                 transaction_type="WITHDRAW",
-                status="PENDING_ANCHOR",  # Must be PENDING_ANCHOR
+                status="PENDING_PAYEE",  # WITHDRAW requires PENDING_PAYEE
                 incoming_currency="USD",
                 outgoing_currency="USDC",
                 value=Decimal("25.00"),
@@ -441,9 +448,18 @@ class TestTransactionProcessor:
             db.session.add(transaction)
             db.session.commit()
 
-            # Send payment message
+            # Create and send payment payload
             solana_signature = "5ZuaVZJMPyqd4q6yfqEPfbNxLkbi1Qr4XStfjQs3rKih"
-            processor._send_status_update(transaction, solana_signature)
+            payment_payload = PaymentPayload(
+                external_reference=solana_signature,
+                payer_name=f"{transaction.first_name} {transaction.last_name}",
+                currency=transaction.outgoing_currency,
+                value=f"{float(transaction.value - transaction.fee)}",
+                source="CHAIN_SOLANA",
+                reference=transaction.reference,
+                bank_account_number=None
+            )
+            processor._send_status_update(payment_payload, transaction.reference)
 
             # Verify message was sent
             mock_message_bus.send_message.assert_called_once()
@@ -478,7 +494,7 @@ class TestTransactionProcessor:
                 reference="MYK5555555555",
                 idempotency_key=str(uuid.uuid4()),
                 transaction_type="WITHDRAW",
-                status="PENDING_ANCHOR",  # Must be PENDING_ANCHOR to be processed
+                status="PENDING_PAYEE",  # WITHDRAW requires PENDING_PAYEE to be processed
                 incoming_currency="USD",
                 outgoing_currency="USDC",
                 value=Decimal("50.00"),
@@ -554,7 +570,16 @@ class TestTransactionProcessor:
             )
 
             # Should not raise an exception
-            processor._send_status_update(transaction, "test_signature")
+            payment_payload = PaymentPayload(
+                external_reference="test_signature",
+                payer_name="Test User",
+                currency=transaction.outgoing_currency,
+                value=f"{float(transaction.value - transaction.fee)}",
+                source="CHAIN_SOLANA",
+                reference=transaction.reference,
+                bank_account_number=None
+            )
+            processor._send_status_update(payment_payload, transaction.reference)
             # No assertion needed - just verifying it doesn't crash
 
     def test_funds_received_status_updates_transaction_to_pending_anchor(self, processor, app):
@@ -604,9 +629,9 @@ class TestTransactionProcessor:
             assert updated_inbox.status == "completed"
 
     def test_funds_received_then_approved_flow(self, processor, app, mock_message_bus):
-        """Test complete flow: FUNDS_RECEIVED updates status, then APPROVED triggers Solana transaction"""
+        """Test complete flow: FUNDS_RECEIVED updates WITHDRAW status to PENDING_ANCHOR, but doesn't trigger processing. Only PENDING_PAYEE + APPROVED triggers Solana transaction"""
         with app.app_context():
-            # Step 1: Create transaction
+            # Step 1: Create WITHDRAW transaction with PENDING_PAYEE status
             transaction = Transaction(
                 id=str(uuid.uuid4()),
                 reference="MYK7777777777",
@@ -624,28 +649,8 @@ class TestTransactionProcessor:
             db.session.add(transaction)
             db.session.commit()
 
-            # Step 2: First message - FUNDS_RECEIVED
-            inbox_message_1 = Inbox(
-                message_id="msg-funds-received-456",
-                message_body={
-                    "reference": "MYK7777777777",
-                    "status": "FUNDS_RECEIVED"
-                },
-                transaction_reference="MYK7777777777",
-                status="pending"
-            )
-            db.session.add(inbox_message_1)
-            db.session.commit()
-
-            # Process FUNDS_RECEIVED message
-            processor._process_messages()
-
-            # Verify transaction is now PENDING_ANCHOR
-            tx = Transaction.query.filter_by(reference="MYK7777777777").first()
-            assert tx.status == "PENDING_ANCHOR"
-
-            # Step 3: Second message - APPROVED
-            inbox_message_2 = Inbox(
+            # Step 2: Create APPROVED message directly (WITHDRAW at PENDING_PAYEE with APPROVED should process)
+            inbox_message = Inbox(
                 message_id="msg-approved-789",
                 message_body={
                     "reference": "MYK7777777777",
@@ -654,7 +659,7 @@ class TestTransactionProcessor:
                 transaction_reference="MYK7777777777",
                 status="pending"
             )
-            db.session.add(inbox_message_2)
+            db.session.add(inbox_message)
             db.session.commit()
 
             # Mock Solana transaction
@@ -748,8 +753,17 @@ class TestTransactionProcessor:
 
             # Send status update should raise ValueError
             solana_signature = "signature_without_identity"
+            payment_payload = PaymentPayload(
+                external_reference=solana_signature,
+                payer_name="Test User",
+                currency=transaction.outgoing_currency,
+                value=f"{float(transaction.value - transaction.fee)}",
+                source="CHAIN_SOLANA",
+                reference=transaction.reference,
+                bank_account_number=None
+            )
             with pytest.raises(ValueError, match="Identity service not configured"):
-                processor._send_status_update(transaction, solana_signature)
+                processor._send_status_update(payment_payload, transaction.reference)
 
             # Verify message was NOT sent
             mock_message_bus.send_message.assert_not_called()
@@ -780,8 +794,81 @@ class TestTransactionProcessor:
 
             # Send status update should raise ValueError
             solana_signature = "signature_token_fail"
+            payment_payload = PaymentPayload(
+                external_reference=solana_signature,
+                payer_name="Test User",
+                currency=transaction.outgoing_currency,
+                value=f"{float(transaction.value - transaction.fee)}",
+                source="CHAIN_SOLANA",
+                reference=transaction.reference,
+                bank_account_number=None
+            )
             with pytest.raises(ValueError, match="Failed to acquire service token"):
-                processor._send_status_update(transaction, solana_signature)
+                processor._send_status_update(payment_payload, transaction.reference)
 
             # Verify message was NOT sent
             mock_message_bus.send_message.assert_not_called()
+
+    def test_send_different_payload_types(self, processor, app, mock_message_bus):
+        """Test sending different payload types (Payment, StatusUpdate, Correction)"""
+        with app.app_context():
+            reference = "MYK1111111111"
+
+            # Test 1: PaymentPayload
+            payment_payload = PaymentPayload(
+                external_reference="solana_signature_123",
+                payer_name="John Doe",
+                currency="EURC",
+                value="97.50",
+                source="CHAIN_SOLANA",
+                reference=reference,
+                bank_account_number=None
+            )
+            processor._send_status_update(payment_payload, reference)
+
+            # Verify payment message was sent
+            assert mock_message_bus.send_message.call_count == 1
+            call_args = mock_message_bus.send_message.call_args
+            message = call_args[0][0].to_dict()
+            assert message["meta_data"]["instruction_type"] == "PAYMENT"
+            assert message["payload"]["external_reference"] == "solana_signature_123"
+
+            # Reset mock
+            mock_message_bus.reset_mock()
+
+            # Test 2: StatusUpdatePayload
+            status_update_payload = StatusUpdatePayload(
+                reference=reference,
+                status="FAILED",
+                message="Transaction failed due to insufficient funds"
+            )
+            processor._send_status_update(status_update_payload, reference)
+
+            # Verify status update message was sent
+            assert mock_message_bus.send_message.call_count == 1
+            call_args = mock_message_bus.send_message.call_args
+            message = call_args[0][0].to_dict()
+            assert message["meta_data"]["instruction_type"] == "STATUS_UPDATE"
+            assert message["payload"]["status"] == "FAILED"
+            assert message["payload"]["message"] == "Transaction failed due to insufficient funds"
+
+            # Reset mock
+            mock_message_bus.reset_mock()
+
+            # Test 3: CorrectionPayload
+            correction_payload = CorrectionPayload(
+                reference=reference,
+                value="5.00",
+                message="Fee adjustment correction",
+                currency="EURC",
+                source="CHAIN_SOLANA"
+            )
+            processor._send_status_update(correction_payload, reference)
+
+            # Verify correction message was sent
+            assert mock_message_bus.send_message.call_count == 1
+            call_args = mock_message_bus.send_message.call_args
+            message = call_args[0][0].to_dict()
+            assert message["meta_data"]["instruction_type"] == "CORRECTION"
+            assert message["payload"]["value"] == "5.00"
+            assert message["payload"]["message"] == "Fee adjustment correction"

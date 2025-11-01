@@ -310,7 +310,7 @@ def get_wallet_balance(wallet_address: str) -> Response:
         from spl.token.instructions import get_associated_token_address
 
         # Initialize Solana client
-        solana_rpc_url = app.config.get("SOLANA_RPC_URL", "https://api.mainnet-beta.solana.com")
+        solana_rpc_url = app.config.get("SOLANA_RPC_URL")
         app.logger.info(f"Getting wallet balance for {wallet_address} at {solana_rpc_url}")
         client = Client(solana_rpc_url)
 

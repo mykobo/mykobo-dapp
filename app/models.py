@@ -33,8 +33,8 @@ class Transaction(db.Model):
     idempotency_key = db.Column(db.String(255), unique=True, nullable=False, index=True)
 
     # Transaction details
-    transaction_type = db.Column(db.String(50), nullable=False)  # deposit, withdrawal
-    status = db.Column(db.String(50), nullable=False, index=True)  # pending_payer, pending_payee, etc.
+    transaction_type = db.Column(db.String(50), nullable=False)  # DEPOSIT, WITHDRAW
+    status = db.Column(db.String(50), nullable=False, index=True)  # PENDING_PAYER, PENDING_PAYEE, etc.
     incoming_currency = db.Column(db.String(10), nullable=False)
     outgoing_currency = db.Column(db.String(10), nullable=False)
     value = db.Column(db.Numeric(precision=20, scale=6), nullable=False)

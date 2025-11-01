@@ -78,8 +78,8 @@ class TestInboxIntegration:
                 id=tx_id,
                 reference=reference,
                 idempotency_key=str(uuid.uuid4()),
-                transaction_type="WITHDRAWAL",
-                status="PENDING_ANCHOR",  # Must be PENDING_ANCHOR to be processed
+                transaction_type="WITHDRAW",
+                status="PENDING_PAYEE",  # WITHDRAW requires PENDING_PAYEE to be processed
                 incoming_currency="EUR",
                 outgoing_currency="EURC",
                 value=Decimal("100.00"),
@@ -170,8 +170,8 @@ class TestInboxIntegration:
                 id=tx_id,
                 reference=reference,
                 idempotency_key=str(uuid.uuid4()),
-                transaction_type="WITHDRAWAL",
-                status="PENDING_ANCHOR",  # Must be PENDING_ANCHOR to be processed
+                transaction_type="WITHDRAW",
+                status="PENDING_PAYEE",  # WITHDRAW requires PENDING_PAYEE to be processed
                 incoming_currency="USD",
                 outgoing_currency="USDC",
                 value=Decimal("50.00"),
@@ -228,8 +228,8 @@ class TestInboxIntegration:
                     id=tx_id,
                     reference=reference,
                     idempotency_key=str(uuid.uuid4()),
-                    transaction_type="WITHDRAWAL",
-                    status="PENDING_ANCHOR",  # Must be PENDING_ANCHOR to be processed
+                    transaction_type="WITHDRAW",
+                    status="PENDING_PAYEE",  # WITHDRAW requires PENDING_PAYEE to be processed
                     incoming_currency="EUR",
                     outgoing_currency="EURC",
                     value=Decimal("75.00"),
@@ -290,8 +290,8 @@ class TestInboxIntegration:
                 id=tx_id,
                 reference=reference,
                 idempotency_key=str(uuid.uuid4()),
-                transaction_type="WITHDRAWAL",
-                status="PENDING_ANCHOR",  # Must be PENDING_ANCHOR to be processed
+                transaction_type="WITHDRAW",
+                status="PENDING_PAYEE",  # WITHDRAW requires PENDING_PAYEE to be processed
                 incoming_currency="USD",
                 outgoing_currency="USDC",
                 value=Decimal("30.00"),
@@ -519,8 +519,8 @@ class TestInboxIntegration:
                 id=tx_id,
                 reference=reference,
                 idempotency_key=str(uuid.uuid4()),
-                transaction_type="WITHDRAWAL",
-                status="PENDING_ANCHOR",  # Must be PENDING_ANCHOR to be processed
+                transaction_type="WITHDRAW",
+                status="PENDING_PAYEE",  # WITHDRAW requires PENDING_PAYEE to be processed
                 incoming_currency="EUR",
                 outgoing_currency="EURC",
                 value=value,
