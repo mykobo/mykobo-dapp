@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.4.2 (2025-11-01)
+
+### Bug Fixes
+
+- Route updates to their correct queues and add tx_hash
+  ([`0e74a61`](https://github.com/mykobo/mykobo-dapp/commit/0e74a61b16e1acd25c73e0c5b903d0cb1680c275))
+
+
 ## v1.4.1 (2025-11-01)
 
 ### Bug Fixes
