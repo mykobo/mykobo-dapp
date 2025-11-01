@@ -1,3 +1,5 @@
+__version__ = "1.2.5"
+
 import os
 
 import jinja2

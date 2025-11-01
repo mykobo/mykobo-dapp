@@ -20,6 +20,7 @@ class Config(object):
     SQS_QUEUE_URL = os.environ.get("SQS_QUEUE_URL")
     TRANSACTION_QUEUE_NAME = os.environ.get("TRANSACTION_QUEUE_NAME")  # will be deprecated once we move to kafka
     TRANSACTION_STATUS_UPDATE_QUEUE_NAME = os.environ.get("TRANSACTION_STATUS_UPDATE_QUEUE_NAME")
+    NOTIFICATIONS_QUEUE_NAME = os.environ.get("NOTIFICATIONS_QUEUE_NAME")
 
     # Solana configuration
     SOLANA_RPC_URL = os.environ.get("SOLANA_RPC_URL", "https://api.mainnet-beta.solana.com")
