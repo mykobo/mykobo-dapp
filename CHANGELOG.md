@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v1.2.6 (2025-11-01)
+
+### Bug Fixes
+
+- Notifications queue name in config
+  ([`ced1f67`](https://github.com/mykobo/mykobo-dapp/commit/ced1f67010b44f878dc24a37f9fcc9f589362116))
+
+### Chores
+
+- **release**: 1.0.0 [skip ci]
+  ([`7af610b`](https://github.com/mykobo/mykobo-dapp/commit/7af610b399cf33004c8bf39da1b87e74e333a662))
+
+
 ## v1.0.0 (2025-11-01)
 
 - Initial Release
