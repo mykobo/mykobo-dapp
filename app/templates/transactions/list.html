@@ -3,7 +3,7 @@
 {% block content %}
     <div class="app-container lobby-container">
         <!-- Wallet Info Button -->
-        <button class="wallet-info-button">
+        <button class="wallet-info-button" onclick="window.location.href='{{ url_for('user.dashboard') }}'">
             <span class="wallet-address">Welcome back {% if user_data %}{{ user_data.first_name }} {{ user_data.last_name }}{% else %}User{% endif %}!</span>
             <span id="wallet-balance"
                   class="wallet-balance">{% if wallet_data and wallet_data.wallet_address %}{{ wallet_data.wallet_address[:6] }}...{{ wallet_data.wallet_address[-4:] }}{% endif %}</span>
@@ -25,10 +25,37 @@
                     </button>
                 {% endfor %}
 
-                <!-- Pagination Info -->
+                <!-- Pagination -->
                 {% if transaction_data.total > transaction_data.limit %}
-                    <div class="pagination-info">
-                        <span>Showing {{ transaction_data.transactions|length }} of {{ transaction_data.total }} transactions</span>
+                    <div class="pagination-container">
+                        <div class="pagination-info">
+                            <span>Showing {{ transaction_data.offset + 1 }}-{{ transaction_data.offset + transaction_data.transactions|length }} of {{ transaction_data.total }} transactions</span>
+                        </div>
+                        <div class="pagination-buttons">
+                            {% if transaction_data.offset > 0 %}
+                                <button class="pagination-button" onclick="window.location.href='{{ url_for('transaction.list_transactions', limit=transaction_data.limit, offset=0) }}'">
+                                    First
+                                </button>
+                                <button class="pagination-button" onclick="window.location.href='{{ url_for('transaction.list_transactions', limit=transaction_data.limit, offset=transaction_data.offset - transaction_data.limit) }}'">
+                                    Previous
+                                </button>
+                            {% else %}
+                                <button class="pagination-button" disabled>First</button>
+                                <button class="pagination-button" disabled>Previous</button>
+                            {% endif %}
+
+                            {% if transaction_data.offset + transaction_data.limit < transaction_data.total %}
+                                <button class="pagination-button" onclick="window.location.href='{{ url_for('transaction.list_transactions', limit=transaction_data.limit, offset=transaction_data.offset + transaction_data.limit) }}'">
+                                    Next
+                                </button>
+                                <button class="pagination-button" onclick="window.location.href='{{ url_for('transaction.list_transactions', limit=transaction_data.limit, offset=(transaction_data.total // transaction_data.limit) * transaction_data.limit) }}'">
+                                    Last
+                                </button>
+                            {% else %}
+                                <button class="pagination-button" disabled>Next</button>
+                                <button class="pagination-button" disabled>Last</button>
+                            {% endif %}
+                        </div>
                     </div>
                 {% endif %}
             {% else %}

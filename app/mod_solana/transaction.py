@@ -350,7 +350,7 @@ def list_transactions() -> Response:
         app.logger.error(e)
 
     # Get pagination parameters
-    limit = min(int(request.args.get('limit', 50)), 100)  # Max 100
+    limit = min(int(request.args.get('limit', 5)), 10)  # Max 100
     offset = int(request.args.get('offset', 0))
 
     try:
