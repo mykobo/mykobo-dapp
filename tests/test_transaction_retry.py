@@ -162,7 +162,7 @@ class TestTransactionRetry:
                 id=str(uuid.uuid4()),
                 reference="RETRY001",
                 idempotency_key=str(uuid.uuid4()),
-                transaction_type="WITHDRAWAL",
+                transaction_type="WITHDRAW",
                 status="pending_payee",
                 incoming_currency="EUR",
                 outgoing_currency="EURC",
@@ -184,6 +184,7 @@ class TestTransactionRetry:
             # Retry the transaction
             result = retry_transaction(transaction)
 
+            print(result)
             # Verify success
             assert result['success'] is True
             assert result['message_id'] == "test-retry-message-id-456"
@@ -197,12 +198,12 @@ class TestTransactionRetry:
 
             # Verify message content
             call_args = mock_message_bus.send_message.call_args
-            message = call_args[0][0]
+            message = call_args[0][0].to_dict()
             queue_name = call_args[0][1]
             source = call_args[0][2]
 
             assert queue_name == "test-queue"
-            assert source == "ANCHOR_SOLANA"
+            assert source == "DAPP.transaction_retry"
             assert message["meta_data"]["token"] == "test-retry-token-abc123"
             assert message["meta_data"]["source"] == "DAPP"
             assert message["payload"]["reference"] == "RETRY001"
@@ -303,8 +304,10 @@ class TestTransactionRetry:
                     id=str(uuid.uuid4()),
                     reference=f"BATCH{i:03d}",
                     idempotency_key=str(uuid.uuid4()),
-                    transaction_type="WITHDRAWAL",
-                    status="pending_payee",
+                    transaction_type="WITHDRAW",
+                    first_name="John",
+                    last_name="Smith",
+                    status="PENDING_PAYEE",
                     incoming_currency="EUR",
                     outgoing_currency="EURC",
                     value=Decimal("100.00"),
@@ -312,6 +315,7 @@ class TestTransactionRetry:
                     wallet_address=f"BatchWallet{i}",
                     source="ANCHOR_SOLANA",
                     instruction_type="Transaction",
+                    payee_id=str(uuid.uuid4()),
                     message_id=None
                 )
                 db.session.add(tx)
@@ -319,6 +323,7 @@ class TestTransactionRetry:
 
             # Retry all unsent
             results = retry_unsent_transactions(limit=100)
+            print(results)
 
             assert results['total'] == 3
             assert results['succeeded'] == 3

@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import List, Dict, Any
 
 from flask import current_app as app
+from mykobo_py.message_bus import MessageBusMessage, InstructionType, TransactionPayload
 from sqlalchemy import and_
 
 from app.database import db
@@ -88,38 +89,36 @@ def retry_transaction(transaction: Transaction) -> Dict[str, Any]:
                 'error': error_msg
             }
 
+        transaction_payload = TransactionPayload(
+            external_reference=transaction.id,
+            source=transaction.source,
+            reference=transaction.reference,
+            first_name=transaction.first_name,
+            last_name=transaction.last_name,
+            transaction_type=transaction.transaction_type,
+            status=transaction.status,
+            incoming_currency=transaction.incoming_currency,
+            outgoing_currency=transaction.outgoing_currency,
+            value=transaction.value,
+            fee=transaction.fee,
+            payer=transaction.payer_id,
+            payee=transaction.payee_id,
+        )
+
+        ledger_payload = MessageBusMessage.create(
+            source="DAPP",
+            instruction_type=InstructionType.TRANSACTION,
+            payload=transaction_payload,
+            service_token=service_token.token,
+            idempotency_key=None
+        )
         # Reconstruct ledger payload from transaction record
-        ledger_payload = {
-            "meta_data": {
-                "source": "DAPP",
-                "instruction_type": transaction.instruction_type,
-                "created_at": transaction.created_at.strftime("%Y-%m-%dT%H:%M:%SZ"),
-                "token": service_token.token,  # Acquired service token
-                "idempotency_key": transaction.idempotency_key,
-                "ip_address": transaction.ip_address,
-            },
-            "payload": {
-                "external_reference": transaction.id,
-                "source": transaction.source,
-                "reference": transaction.reference,
-                "first_name": transaction.first_name,
-                "last_name": transaction.last_name,
-                "transaction_type": transaction.transaction_type,
-                "status": transaction.status,
-                "incoming_currency": transaction.incoming_currency,
-                "outgoing_currency": transaction.outgoing_currency,
-                "value": str(transaction.value),
-                "fee": str(transaction.fee),
-                "payer": transaction.payer_id,
-                "payee": transaction.payee_id,
-            },
-        }
 
         # Send to queue
         queue_response = app.config["MESSAGE_BUS"].send_message(
             ledger_payload,
             app.config["TRANSACTION_QUEUE_NAME"],
-            transaction.source,
+            "DAPP.transaction_retry",
         )
 
         # Update transaction with message ID
