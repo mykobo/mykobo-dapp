@@ -38,7 +38,7 @@ class Development(Config):
     DEBUG = True
     FLASK_ENV = "development"
     FLASK_DEBUG = 1
-    SQLALCHEMY_ECHO = True  # Log SQL queries in development
+    SQLALCHEMY_ECHO = False  # Configure logging level via logger instead
 
 
 class Production(Config):
