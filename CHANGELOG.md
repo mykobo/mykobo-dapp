@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.2.7 (2025-11-01)
+
+### Bug Fixes
+
+- Database logging
+  ([`c7559bf`](https://github.com/mykobo/mykobo-dapp/commit/c7559bf5877b898a21e77d6900d380eeb81718d3))
+
+
 ## v1.2.6 (2025-11-01)
 
 ### Bug Fixes
