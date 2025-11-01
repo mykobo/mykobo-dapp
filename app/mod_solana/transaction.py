@@ -237,7 +237,6 @@ def info(reference) -> Response:
     user_data = {}
     wallet_data = {}
 
-
     try:
         wallet_data = get_wallet_balance(wallet_address).json
     except Exception as wallet_error:
@@ -276,6 +275,132 @@ def info(reference) -> Response:
         user_data=user_data,
         wallet_data=wallet_data
     ), 201)
+
+
+@bp.route("/list", methods=["GET"])
+@require_wallet_auth
+def list_transactions() -> Response:
+    """
+    API endpoint to get list of transactions for a wallet address.
+    Extracts wallet address from authenticated request.
+    Returns transactions ordered by most recent first.
+
+    Query parameters:
+        limit (optional): Maximum number of transactions to return (default: 50, max: 100)
+        offset (optional): Number of transactions to skip (default: 0)
+
+    Returns:
+        JSON response with transactions:
+        {
+            "wallet_address": "...",
+            "transactions": [
+                {
+                    "id": "...",
+                    "reference": "...",
+                    "transaction_type": "...",
+                    "status": "...",
+                    "incoming_currency": "...",
+                    "outgoing_currency": "...",
+                    "value": "...",
+                    "fee": "...",
+                    "created_at": "...",
+                    "updated_at": "...",
+                    "solana_tx_signature": "..."
+                },
+                ...
+            ],
+            "total": 123,
+            "limit": 50,
+            "offset": 0
+        }
+    """
+    wallet_address = request.wallet_address
+
+    user_data = {}
+    wallet_data = {}
+
+    try:
+        wallet_data = get_wallet_balance(wallet_address).json
+    except Exception as wallet_error:
+        app.logger.exception(f"Could not fetch wallet balance: {wallet_error}")
+
+    service_token = app.config["IDENTITY_SERVICE_CLIENT"].acquire_token()
+
+    try:
+        wallet_profile_response = app.config["WALLET_SERVICE_CLIENT"].get_wallet_profile(service_token, wallet_address)
+        wallet_profile = wallet_profile_response.json()
+
+        try:
+            identity_service_response = app.config[
+                "IDENTITY_SERVICE_CLIENT"
+            ].get_user_profile(service_token, wallet_profile["profile_id"])
+
+            user_data = identity_service_response.json()
+        except Exception as e:
+            app.logger.exception(
+                "Could not fetch user data %s", e
+            )
+            return make_response(
+                render_template(
+                    "error/500.html", reason="Could not fetch user data"
+                ),
+                500,
+            )
+    except Exception as e:
+        app.logger.error(e)
+
+    # Get pagination parameters
+    limit = min(int(request.args.get('limit', 50)), 100)  # Max 100
+    offset = int(request.args.get('offset', 0))
+
+    try:
+        # Query transactions for this wallet address, ordered by most recent
+        query = Transaction.query.filter_by(wallet_address=wallet_address)
+
+        # Get total count
+        total = query.count()
+
+        # Get paginated results ordered by created_at descending (most recent first)
+        transactions = query.order_by(Transaction.created_at.desc()).limit(limit).offset(offset).all()
+
+        # Convert to list of dicts
+        transactions_data = []
+        for tx in transactions:
+            transactions_data.append({
+                "id": tx.id,
+                "reference": tx.reference,
+                "transaction_type": tx.transaction_type,
+                "status": tx.status,
+                "incoming_currency": tx.incoming_currency,
+                "outgoing_currency": tx.outgoing_currency,
+                "value": str(tx.value),
+                "fee": str(tx.fee),
+                "first_name": tx.first_name,
+                "last_name": tx.last_name,
+                "created_at": tx.created_at.isoformat() if tx.created_at else None,
+                "updated_at": tx.updated_at.isoformat() if tx.updated_at else None
+            })
+
+        app.logger.info(f"Retrieved {len(transactions_data)} transactions for wallet {wallet_address}")
+
+        return make_response(
+            render_template(
+                "transactions/list.html",
+                wallet_data=wallet_data,
+                user_data=user_data,
+                transaction_data={
+                    "transactions": transactions_data,
+                    "total": total,
+                    "limit": limit,
+                    "offset": offset
+                })
+        )
+
+    except Exception as e:
+        app.logger.exception(f"Error fetching transactions for wallet {wallet_address}: {e}")
+        return make_response(
+            render_template("error/500.html", reason="Failed to fetch transactions"), 500
+        )
 
 
 @bp.route("/balance", methods=["GET"])

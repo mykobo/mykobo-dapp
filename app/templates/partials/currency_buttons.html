@@ -1,5 +1,5 @@
 {% if transacting %}
-    <div class="currency-buttons">
+    <div class="currency-buttons mb-2">
         <button class="currency-button" disabled>
             <div class="currency-icon"><img src="{{ url_for('static', filename='images/solana.svg') }}"
                                             alt="Solana"/></div>
@@ -20,7 +20,7 @@
     </div>
 
 {% else %}
-    <div class="currency-buttons">
+    <div class="currency-buttons mb-2">
         <button class="currency-button">
             <div class="currency-icon"><img src="{{ url_for('static', filename='images/solana.svg') }}"
                                             alt="Solana"/></div>

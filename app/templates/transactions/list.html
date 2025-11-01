@@ -1,0 +1,41 @@
+{% extends "layouts/authenticated.html" %}
+{% block title %} Your Transactions {% endblock %}
+{% block content %}
+    <div class="app-container lobby-container">
+        <!-- Wallet Info Button -->
+        <button class="wallet-info-button">
+            <span class="wallet-address">Welcome back {% if user_data %}{{ user_data.first_name }} {{ user_data.last_name }}{% else %}User{% endif %}!</span>
+            <span id="wallet-balance"
+                  class="wallet-balance">{% if wallet_data and wallet_data.wallet_address %}{{ wallet_data.wallet_address[:6] }}...{{ wallet_data.wallet_address[-4:] }}{% endif %}</span>
+        </button>
+
+        <!-- Transactions List -->
+        <div class="transactions-container">
+            {% if transaction_data.transactions|length > 0 %}
+                {% for transaction in transaction_data.transactions %}
+                    <button class="transaction-card" onclick="window.location.href='{{ url_for('transaction.info', reference=transaction.reference) }}'">
+                        <div class="transaction-main">
+                            <span class="transaction-type">{{ transaction.transaction_type }}</span>
+                            <span class="transaction-amount">{{ transaction.outgoing_currency }} {{ transaction.value | float | round(2) }}</span>
+                        </div>
+                        <div class="transaction-details">
+                            <span class="transaction-reference">{{ transaction.reference }}</span>
+                            <span class="transaction-status status-{{ transaction.status|lower|replace('_', '-') }}">{{ transaction.status | transaction_status }}</span>
+                        </div>
+                    </button>
+                {% endfor %}
+
+                <!-- Pagination Info -->
+                {% if transaction_data.total > transaction_data.limit %}
+                    <div class="pagination-info">
+                        <span>Showing {{ transaction_data.transactions|length }} of {{ transaction_data.total }} transactions</span>
+                    </div>
+                {% endif %}
+            {% else %}
+                <div class="empty-state">
+                    <p>No transactions found</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+{% endblock %}

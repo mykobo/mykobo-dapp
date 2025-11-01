@@ -5,53 +5,56 @@
     <!-- Wallet Info Button -->
     <a href="{{ url_for("user.dashboard") }}" class="wallet-info-button mb-2">
         <span class="wallet-address">Welcome back {{ user_data.first_name }} {{ user_data.last_name }}! </span>
-        <span id="wallet-balance" class="wallet-balance">{{ wallet_data.wallet_address[:9] }}...{{ wallet_data.wallet_address[-4:] }}</span>
+        <span id="wallet-balance"
+              class="wallet-balance">{{ wallet_data.wallet_address[:9] }}...{{ wallet_data.wallet_address[-4:] }}</span>
     </a>
 
     <!-- Currency Balance Buttons -->
     {% include "partials/currency_buttons.html" %}
 
-    <div class="card card-body rounded-3 mb-4 mt-4">
-        <div class="row">
-            {% if transaction_data.transaction_type.lower() == "deposit" %}
-                <span class="display-5">Send Exactly</span><br/>
-                <span class="text-lg-start display-3 pt-1 p-3">{{ transaction_data.value | round(2) }}</span>
+    {% if transaction_data.status.upper() != "COMPLETED" %}
+        <div class="card card-body rounded-3 mb-4 mt-4">
+            <div class="row">
+                {% if transaction_data.transaction_type.lower() == "deposit" %}
+                    <span class="display-5">Send Exactly</span><br/>
+                    <span class="text-lg-start display-3 pt-1 p-3">{{ transaction_data.value | round(2) }}</span>
+                {% else %}
+                    <span class="display-5">You Receive</span><br/>
+                    <span class="text-lg-start display-3 pt-1 p-3">{{ float(transaction_data.value) - float(transaction_data.fee) }}</span>
+                {% endif %}
+            </div>
+            {% if transaction_data.transaction_type.lower() == "withdraw" %}
+                <div class="row">
+                    <div class="display-5">At</div>
+                    <div class="pt-1 p-3">
+                        <div class="me-auto p-1">{{ user_data.bank_account_number | upper }}
+                        </div>
+                    </div>
+                </div>
             {% else %}
-                <span class="display-5">You Receive</span><br/>
-                <span class="text-lg-start display-3 pt-1 p-3">{{ float(transaction_data.value) - float(transaction_data.fee) }}</span>
+                <div class="row">
+                    <div class="display-5">To</div>
+                    <div class="pt-1 p-3">
+                        <div class="me-auto p-1">
+                            MYKOBO SP. z.o.o<br/>
+                            {{ mykobo_iban }}
+                        </div>
+                    </div>
+                </div>
             {% endif %}
-        </div>
-        {% if transaction_data.transaction_type.lower() == "withdraw" %}
             <div class="row">
-                <div class="display-5">At</div>
-                <div class="pt-1 p-3">
-                    <div class="me-auto p-1">{{ user_data.bank_account_number | upper }}
-                    </div>
-                </div>
+                <div class="display-5">Reference</div>
+                <div class="pt-1 p-3">{{ transaction_data.reference }}</div>
+                <br/>
             </div>
-        {% else %}
-            <div class="row">
-                <div class="display-5">To</div>
-                <div class="pt-1 p-3">
-                    <div class="me-auto p-1">
-                        MYKOBO SP. z.o.o<br/>
-                        {{ mykobo_iban }}
-                    </div>
-                </div>
-            </div>
-        {% endif %}
-        <div class="row">
-            <div class="display-5">Reference</div>
-            <div class="pt-1 p-3">{{ transaction_data.reference }}</div>
-            <br/>
         </div>
-    </div>
+    {% endif %}
     <div class="card card-body rounded-3">
         <label class="badge badge-outline-{{ transaction_data.status | status_to_label }} rounded-3 mb-3">
             {{ transaction_data.status | transaction_status }}
         </label>
 
-        {% if transaction_data.status != "completed" %}
+        {% if transaction_data.status.upper() != "COMPLETED" %}
             {% if transaction_data.transaction_type.lower() == "deposit" %}
                 <div class="alert alert-warning p-2" role="alert">
                     <p>Please make sure you include the reference <b>{{ reference }}</b> when making your bank

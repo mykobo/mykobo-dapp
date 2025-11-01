@@ -12,12 +12,12 @@ def currency(value, asset):
 
 def transaction_status(value: str):
     match value.lower():
-        case "pending_user_transfer_start":
-            return "Waiting for user funds"
-        case "complete":
-            return "Complete"
+        case "pending_payer" | "pending_payee":
+            return "Waiting for you"
+        case "completed":
+            return "Transaction Complete"
         case "failed":
-            return "Failed"
+            return "Transaction Failed"
         case _:
             return "We are working on it"
 
@@ -25,7 +25,7 @@ def transaction_status(value: str):
 def transaction_status_to_label(value: str):
     if value.lower().startswith("pending"):
         return "warning"
-    if value.lower() == "complete":
+    if value.lower() == "completed":
         return "success"
     if value.lower() == "failed":
         return "danger"

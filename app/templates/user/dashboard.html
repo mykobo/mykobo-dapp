@@ -7,7 +7,7 @@
             <button class="wallet-info-button">
                 <span class="wallet-address">Welcome back {{ user_data.first_name }} {{ user_data.last_name }}!</span>
                 <span id="wallet-balance"
-                      class="wallet-balance">{{ wallet_address[:6] }}...{{ wallet_address[-4:] }}</span>
+                      class="wallet-balance">{{ wallet_data.wallet_address[:6] }}...{{ wallet_data.wallet_address[-4:] }}</span>
             </button>
 
             <!-- Currency Balance Buttons -->
@@ -40,6 +40,10 @@
                         Liquidity
                     </button>
                 </div>
+                <button type="button" id="transaction-history-btn" class="action-button secondary-button"
+                        onclick="window.location.href='{{ url_for('transaction.list_transactions', type='withdraw') }}'">
+                    Transaction History
+                </button>
             {% endif %}
 
             <!-- Disconnect Button -->
