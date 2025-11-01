@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.4.0 (2025-11-01)
+
+### Features
+
+- Added transaction history
+  ([`d9b83f4`](https://github.com/mykobo/mykobo-dapp/commit/d9b83f4b136eaed00fa2d3c307294bfd9802c325))
+
+
 ## v1.3.0 (2025-11-01)
 
 ### Features
