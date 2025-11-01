@@ -5,7 +5,7 @@ build:
 	cp -r ./wallet-connect/static/js ./app/static
 	cp -r ./wallet-connect/static/css ./app/static
 
-run_web:
+run_dapp:
 	source .venv/bin/activate && HOSTNAME="127.0.0.1" ENV=local SERVICE_PORT=5001 ./boot.sh
 
 run_transaction_processor:

@@ -275,7 +275,7 @@ def info(reference) -> Response:
         user_data=user_data,
         wallet_data=wallet_data,
         mykobo_iban=app.config.get("IBAN"),
-        explorer_url=f"https://explorer.solana.com/tx/{transaction.tx_hash}?cluster={app.config.get("SOLANA_CLUSTER")}"
+        explorer_url=f"https://explorer.solana.com/tx/{transaction.tx_hash}?cluster={app.config.get("SOLANA_CLUSTER")}" if transaction.tx_hash else None
     ), 201)
 
 
