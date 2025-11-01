@@ -2,6 +2,17 @@
 
 <!-- version list -->
 
+## v1.2.5 (2025-11-01)
+
+### Bug Fixes
+
+- Improved typing
+  ([`6d9b1f6`](https://github.com/mykobo/mykobo-dapp/commit/6d9b1f6aa60d5430908175abe006736d75fa015e))
+
+- Upgrade mykobo library, send payment message to ledger when transaction is done
+  ([`3a42ec1`](https://github.com/mykobo/mykobo-dapp/commit/3a42ec19ed01fb8dc72273ce2a555d4ff96bfcfd))
+
+
 ## v1.2.4 (2025-10-31)
 
 ### Bug Fixes
