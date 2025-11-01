@@ -158,7 +158,7 @@ class TestInboxIntegration:
 
             # Transaction should be completed
             db.session.refresh(transaction)
-            assert transaction.status == "completed"
+            assert transaction.status == "COMPLETED"
 
     def test_idempotency_in_inbox_flow(self, app, consumer, processor, mock_sqs_client):
         """Test that duplicate messages are handled idempotently"""
@@ -278,7 +278,7 @@ class TestInboxIntegration:
                 # Verify all transactions completed
                 for transaction in transactions:
                     db.session.refresh(transaction)
-                    assert transaction.status == "completed"
+                    assert transaction.status == "COMPLETED"
 
     def test_failed_transaction_not_completed(self, app, consumer, processor, mock_sqs_client):
         """Test that failed Solana transactions don't mark inbox as completed"""

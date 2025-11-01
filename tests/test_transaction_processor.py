@@ -270,7 +270,7 @@ class TestTransactionProcessor:
                 assert inbox_message.status == "completed"
 
                 # Verify transaction status updated
-                assert transaction.status == "completed"
+                assert transaction.status == "COMPLETED"
 
     def test_process_inbox_message_batch(self, processor, app):
         """Test processing multiple messages in a batch"""
@@ -418,7 +418,7 @@ class TestTransactionProcessor:
             assert found.value == Decimal("200.00")
 
     def test_send_status_update(self, processor, app, mock_message_bus):
-        """Test sending status update message to queue"""
+        """Test sending payment message to queue"""
         with app.app_context():
             # Create transaction
             tx_id = str(uuid.uuid4())
@@ -427,11 +427,13 @@ class TestTransactionProcessor:
                 reference="MYK6666666666",
                 idempotency_key=str(uuid.uuid4()),
                 transaction_type="WITHDRAW",
-                status="FULFILLED",
+                status="COMPLETED",
                 incoming_currency="EUR",
                 outgoing_currency="EURC",
                 value=Decimal("100.00"),
                 fee=Decimal("2.50"),
+                first_name="John",
+                last_name="Doe",
                 wallet_address="TestWallet",
                 source="ANCHOR_SOLANA",
                 instruction_type="Transaction",
@@ -439,7 +441,7 @@ class TestTransactionProcessor:
             db.session.add(transaction)
             db.session.commit()
 
-            # Send status update
+            # Send payment message
             solana_signature = "5ZuaVZJMPyqd4q6yfqEPfbNxLkbi1Qr4XStfjQs3rKih"
             processor._send_status_update(transaction, solana_signature)
 
@@ -448,21 +450,26 @@ class TestTransactionProcessor:
 
             # Verify message structure
             call_args = mock_message_bus.send_message.call_args
-            message = call_args[0][0]
+            message_obj = call_args[0][0]
             queue_name = call_args[0][1]
             source = call_args[0][2]
 
+            # Convert message object to dict for assertions
+            message = message_obj.to_dict()
+
             assert queue_name == "test-status-update-queue"
-            assert source == "DAPP"
-            assert message["meta_data"]["source"] == "DAPP"
-            assert message["meta_data"]["event"] == "STATUS_UPDATE"
+            assert source == "DAPP.transaction_processor"
+            assert message["meta_data"]["source"] == "MYKOBO_DAPP"
+            assert message["meta_data"]["instruction_type"] == "PAYMENT"
             assert message["meta_data"]["token"] == "test-service-token-abc123"
             assert message["payload"]["reference"] == "MYK6666666666"
-            assert message["payload"]["status"] == "FULFILLED"
-            assert message["payload"]["message"] == "Transaction has been executed on chain successfully"
+            assert message["payload"]["external_reference"] == solana_signature
+            assert message["payload"]["currency"] == "EURC"
+            assert message["payload"]["value"] == "97.5"  # 100 - 2.50
+            assert message["payload"]["source"] == "CHAIN_SOLANA"
 
     def test_status_update_on_successful_transaction(self, processor, app, mock_message_bus):
-        """Test that status update is sent when Solana transaction succeeds"""
+        """Test that payment message is sent when Solana transaction succeeds"""
         with app.app_context():
             # Create transaction and inbox message
             tx_id = str(uuid.uuid4())
@@ -476,6 +483,8 @@ class TestTransactionProcessor:
                 outgoing_currency="USDC",
                 value=Decimal("50.00"),
                 fee=Decimal("1.50"),
+                first_name="Jane",
+                last_name="Smith",
                 wallet_address="StatusUpdateWallet",
                 source="ANCHOR_SOLANA",
                 instruction_type="Transaction",
@@ -504,17 +513,24 @@ class TestTransactionProcessor:
                 # Process messages
                 processor._process_messages()
 
-                # Verify status update was sent
+                # Verify payment message was sent
                 mock_message_bus.send_message.assert_called_once()
 
                 # Verify the message content
                 call_args = mock_message_bus.send_message.call_args
-                message = call_args[0][0]
+                message_obj = call_args[0][0]
 
+                # Convert message object to dict for assertions
+                message = message_obj.to_dict()
+
+                assert message["meta_data"]["source"] == "MYKOBO_DAPP"
+                assert message["meta_data"]["instruction_type"] == "PAYMENT"
                 assert message["meta_data"]["token"] == "test-service-token-abc123"
                 assert message["payload"]["reference"] == "MYK5555555555"
-                assert message["payload"]["status"] == "FULFILLED"
-                assert message["payload"]["message"] == "Transaction has been executed on chain successfully"
+                assert message["payload"]["external_reference"] == "test_signature_abc123"
+                assert message["payload"]["currency"] == "USDC"
+                assert message["payload"]["value"] == "48.5"  # 50 - 1.50
+                assert message["payload"]["source"] == "CHAIN_SOLANA"
 
     def test_no_status_update_when_queue_not_configured(self, processor, app):
         """Test that missing queue configuration is handled gracefully"""
@@ -656,7 +672,7 @@ class TestTransactionProcessor:
 
                 # Verify transaction is now completed
                 tx = Transaction.query.filter_by(reference="MYK7777777777").first()
-                assert tx.status == "completed"
+                assert tx.status == "COMPLETED"
 
                 # Verify status update was sent
                 mock_message_bus.send_message.assert_called_once()

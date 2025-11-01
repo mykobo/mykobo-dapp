@@ -17,6 +17,8 @@ import uuid
 from datetime import datetime, UTC
 from typing import Dict, Any
 from flask import Flask
+from mykobo_py.message_bus import PaymentPayload, MessageBusMessage, InstructionType
+
 from app.database import db
 from app.models import Transaction, Inbox
 
@@ -285,12 +287,12 @@ class TransactionProcessor:
                 )
 
                 # Update transaction record in database (already in app context)
-                transaction.status = 'completed'
+                transaction.status = 'COMPLETED'
                 transaction.updated_at = datetime.now(UTC)
                 # TODO: Add a field to store Solana transaction signature
                 # transaction.solana_tx_signature = solana_signature
                 db.session.commit()
-                self.logger.info(f"Updated transaction [{reference}] status to completed")
+                self.logger.info(f"Updated transaction [{reference}] status to COMPLETED")
 
                 # Send status update message to queue
                 self._send_status_update(transaction, solana_signature)
@@ -451,7 +453,7 @@ class TransactionProcessor:
 
     def _send_status_update(self, transaction: Transaction, solana_signature: str):
         """
-        Send transaction status update message to queue.
+        Send payment message to queue for completed transactions.
 
         Args:
             transaction: Transaction model instance
@@ -478,35 +480,38 @@ class TransactionProcessor:
                 self.logger.error(error_msg)
                 raise ValueError(error_msg) from e
 
-            # Construct status update message
-            status_update_message = {
-                "meta_data": {
-                    "idempotency_key": str(uuid.uuid4()),
-                    "source": "DAPP",
-                    "event": "STATUS_UPDATE",
-                    "created_at": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
-                    "token": service_token.token
-                },
-                "payload": {
-                    "reference": transaction.reference,
-                    "status": "FULFILLED",
-                    "message": "Transaction has been executed on chain successfully"
-                }
-            }
+            # Construct payment message
+            payment_payload = PaymentPayload(
+                external_reference=solana_signature,
+                payer_name=f"{transaction.first_name} {transaction.last_name}",
+                currency=transaction.outgoing_currency,
+                value=f"{float(transaction.value - transaction.fee)}",
+                source="CHAIN_SOLANA",
+                reference=transaction.reference,
+                bank_account_number=None
+            )
 
-            # Send message to status update queue
+            payment_message = MessageBusMessage.create(
+                source="MYKOBO_DAPP",
+                instruction_type=InstructionType.PAYMENT,
+                payload=payment_payload,
+                service_token=service_token.token,
+                idempotency_key=None
+            )
+
+            # Send payment message to status update queue
             self.logger.info(
-                f"Sending status update for [{transaction.reference}] to queue: {self.status_update_queue_name}"
+                f"Sending payment message for [{transaction.reference}] to queue: {self.status_update_queue_name}"
             )
 
             response = self.message_bus.send_message(
-                status_update_message,
+                payment_message,
                 self.status_update_queue_name,
-                "DAPP"
+                "DAPP.transaction_processor"
             )
 
             self.logger.info(
-                f"Status update sent for [{transaction.reference}]: Message ID: {response.get('MessageId')}"
+                f"Payment message sent for [{transaction.reference}]: Message ID: {response.get('MessageId')}"
             )
 
         except ValueError as e:
