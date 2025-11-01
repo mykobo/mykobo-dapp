@@ -21,10 +21,13 @@ class Config(object):
     TRANSACTION_QUEUE_NAME = os.environ.get("TRANSACTION_QUEUE_NAME")  # will be deprecated once we move to kafka
     TRANSACTION_STATUS_UPDATE_QUEUE_NAME = os.environ.get("TRANSACTION_STATUS_UPDATE_QUEUE_NAME")
     NOTIFICATIONS_QUEUE_NAME = os.environ.get("NOTIFICATIONS_QUEUE_NAME")
+    PAYMENTS_QUEUE_NAME = os.environ.get("PAYMENTS_QUEUE_NAME")
+    CORRECTION_QUEUE_NAME = os.environ.get("CORRECTION_QUEUE_NAME")
 
     # Solana configuration
-    SOLANA_RPC_URL = os.environ.get("SOLANA_RPC_URL", "https://api.mainnet-beta.solana.com")
+    SOLANA_RPC_URL = os.environ.get("SOLANA_RPC_URL")
     SOLANA_DISTRIBUTION_PRIVATE_KEY = os.environ.get("SOLANA_DISTRIBUTION_PRIVATE_KEY")
+    SOLANA_CLUSTER = os.environ.get("SOLANA_CLUSTER")
     USDC_TOKEN_MINT = os.environ.get("USDC_TOKEN_MINT", "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v")  # USDC mainnet mint
     EURC_TOKEN_MINT = os.environ.get("EURC_TOKEN_MINT", "HzwqbKZw8HxMN6bF2yFZNrht3c2iXXzpKcFu7uBEDKtr")  # USDC mainnet mint
 

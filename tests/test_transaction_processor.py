@@ -39,6 +39,8 @@ class TestTransactionProcessor:
         app.config["USDC_TOKEN_MINT"] = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
         app.config["MESSAGE_BUS"] = mock_message_bus
         app.config["TRANSACTION_STATUS_UPDATE_QUEUE_NAME"] = "test-status-update-queue"
+        app.config["PAYMENTS_QUEUE_NAME"] = "test-payments-queue"
+        app.config["CORRECTION_QUEUE_NAME"] = "test-correction-queue"
         app.config["IDENTITY_SERVICE_CLIENT"] = mock_identity_service
         return TransactionProcessor(app)
 
@@ -473,7 +475,7 @@ class TestTransactionProcessor:
             # Convert message object to dict for assertions
             message = message_obj.to_dict()
 
-            assert queue_name == "test-status-update-queue"
+            assert queue_name == "test-payments-queue"  # PaymentPayload goes to payments queue
             assert source == "DAPP.transaction_processor"
             assert message["meta_data"]["source"] == "MYKOBO_DAPP"
             assert message["meta_data"]["instruction_type"] == "PAYMENT"
@@ -872,3 +874,88 @@ class TestTransactionProcessor:
             assert message["meta_data"]["instruction_type"] == "CORRECTION"
             assert message["payload"]["value"] == "5.00"
             assert message["payload"]["message"] == "Fee adjustment correction"
+
+    def test_payment_payload_routed_to_payments_queue(self, processor, app, mock_message_bus):
+        """Test that PaymentPayload is routed to the payments queue"""
+        with app.app_context():
+            reference = "MYK2222222222"
+            payment_payload = PaymentPayload(
+                external_reference="solana_sig_payment",
+                payer_name="Jane Smith",
+                currency="USDC",
+                value="150.00",
+                source="CHAIN_SOLANA",
+                reference=reference,
+                bank_account_number=None
+            )
+
+            processor._send_status_update(payment_payload, reference)
+
+            # Verify message was sent to payments queue
+            assert mock_message_bus.send_message.call_count == 1
+            call_args = mock_message_bus.send_message.call_args
+            queue_name = call_args[0][1]  # Second argument is the queue name
+            assert queue_name == "test-payments-queue"
+
+    def test_status_update_payload_routed_to_status_update_queue(self, processor, app, mock_message_bus):
+        """Test that StatusUpdatePayload is routed to the status update queue"""
+        with app.app_context():
+            reference = "MYK3333333333"
+            status_update_payload = StatusUpdatePayload(
+                reference=reference,
+                status="PENDING",
+                message="Awaiting confirmation"
+            )
+
+            processor._send_status_update(status_update_payload, reference)
+
+            # Verify message was sent to status update queue
+            assert mock_message_bus.send_message.call_count == 1
+            call_args = mock_message_bus.send_message.call_args
+            queue_name = call_args[0][1]  # Second argument is the queue name
+            assert queue_name == "test-status-update-queue"
+
+    def test_correction_payload_routed_to_correction_queue(self, processor, app, mock_message_bus):
+        """Test that CorrectionPayload is routed to the correction queue"""
+        with app.app_context():
+            reference = "MYK4444444444"
+            correction_payload = CorrectionPayload(
+                reference=reference,
+                value="10.00",
+                message="Refund processing fee",
+                currency="EURC",
+                source="CHAIN_SOLANA"
+            )
+
+            processor._send_status_update(correction_payload, reference)
+
+            # Verify message was sent to correction queue
+            assert mock_message_bus.send_message.call_count == 1
+            call_args = mock_message_bus.send_message.call_args
+            queue_name = call_args[0][1]  # Second argument is the queue name
+            assert queue_name == "test-correction-queue"
+
+    def test_missing_queue_configuration_logs_warning(self, processor, app, mock_message_bus):
+        """Test that missing queue configuration logs a warning and doesn't send"""
+        with app.app_context():
+            # Remove queue configurations
+            processor.payment_queue_name = None
+            processor.status_update_queue_name = None
+            processor.correction_queue_name = None
+
+            reference = "MYK5555555555"
+            payment_payload = PaymentPayload(
+                external_reference="solana_sig_no_queue",
+                payer_name="Test User",
+                currency="EURC",
+                value="50.00",
+                source="CHAIN_SOLANA",
+                reference=reference,
+                bank_account_number=None
+            )
+
+            # Should not raise exception, just log warning
+            processor._send_status_update(payment_payload, reference)
+
+            # Verify message was NOT sent
+            mock_message_bus.send_message.assert_not_called()

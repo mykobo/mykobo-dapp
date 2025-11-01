@@ -94,6 +94,19 @@
                     <td>You get</td>
                     <td class="">{{ (transaction_data.value - transaction_data.fee) | round(2) }}</td>
                 </tr>
+                {% if transaction_data.tx_hash %}
+                <tr>
+                    <td>Transaction Hash</td>
+                    <td>
+                        <a href="https://solscan.io/tx/{{ transaction_data.tx_hash }}?cluster=devnet"
+                           target="_blank"
+                           class="text-primary"
+                           style="font-family: Courier New, monospace; font-size: 0.875rem;">
+                            {{ transaction_data.tx_hash[:8] }}...{{ transaction_data.tx_hash[-8:] }}
+                        </a>
+                    </td>
+                </tr>
+                {% endif %}
                 </tbody>
             </table>
         </div>

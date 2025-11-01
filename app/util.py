@@ -20,8 +20,8 @@ def get_maximum_transaction_value() -> int:
     return 30000
 
 
-def generate_reference(prefix: str = "") -> str:
-    return f"MYK{int(time())}"
+def generate_reference(prefix: str = "MYK") -> str:
+    return f"{prefix}{int(time())}"
 
 
 def get_fee(fee_endpoint: str, value: str, kind: str, client_domain: Optional[str]) -> Dict:

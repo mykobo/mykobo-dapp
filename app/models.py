@@ -56,6 +56,9 @@ class Transaction(db.Model):
     message_id = db.Column(db.String(255), nullable=True)  # SQS Message ID
     queue_sent_at = db.Column(db.DateTime(timezone=True), nullable=True)
 
+    # Blockchain transaction hash (Solana signature)
+    tx_hash = db.Column(db.String(255), nullable=True, index=True)  # Solana transaction signature
+
     # Timestamps
     created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))
     updated_at = db.Column(db.DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
@@ -85,6 +88,7 @@ class Transaction(db.Model):
             'ip_address': self.ip_address,
             'message_id': self.message_id,
             'queue_sent_at': self.queue_sent_at.isoformat() if self.queue_sent_at else None,
+            'tx_hash': self.tx_hash,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
         }

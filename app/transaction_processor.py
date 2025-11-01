@@ -52,6 +52,8 @@ class TransactionProcessor:
         # SQS configuration for status updates
         self.message_bus = app.config.get("MESSAGE_BUS")
         self.status_update_queue_name = app.config.get("TRANSACTION_STATUS_UPDATE_QUEUE_NAME")
+        self.payment_queue_name = app.config.get("PAYMENTS_QUEUE_NAME")
+        self.correction_queue_name = app.config.get("CORRECTION_QUEUE_NAME")
 
         # Solana configuration
         self.solana_rpc_url = app.config.get("SOLANA_RPC_URL")
@@ -299,9 +301,9 @@ class TransactionProcessor:
                 # Update transaction record in database (already in app context)
                 transaction.status = 'COMPLETED'
                 transaction.updated_at = datetime.now(UTC)
-                transaction.solana_tx_signature = solana_signature
+                transaction.tx_hash = solana_signature
                 db.session.commit()
-                self.logger.info(f"Updated transaction [{reference}] status to COMPLETED")
+                self.logger.info(f"Updated transaction [{reference}] status to COMPLETED with tx_hash: {solana_signature}")
 
                 # Send payment message to queue
                 payment_payload = PaymentPayload(
@@ -525,9 +527,9 @@ class TransactionProcessor:
             if reference is None:
                 reference = getattr(payload, 'reference', 'UNKNOWN')
 
-            if not self.message_bus or not self.status_update_queue_name:
+            if not self.message_bus or not self.status_update_queue_name or not self.correction_queue_name or not self.payment_queue_name:
                 self.logger.warning(
-                    f"Status update queue not configured, skipping status update for [{reference}]"
+                    f"Status update queues not configured, skipping status update for [{reference}]"
                 )
                 return
 
@@ -545,16 +547,20 @@ class TransactionProcessor:
                 self.logger.error(error_msg)
                 raise ValueError(error_msg) from e
 
+            target_queue = None
             # Determine instruction type based on payload type
             if isinstance(payload, PaymentPayload):
                 instruction_type = InstructionType.PAYMENT
                 message_type = "payment"
+                target_queue = self.payment_queue_name
             elif isinstance(payload, StatusUpdatePayload):
                 instruction_type = InstructionType.STATUS_UPDATE
                 message_type = "status update"
+                target_queue =  self.status_update_queue_name
             elif isinstance(payload, CorrectionPayload):
                 instruction_type = InstructionType.CORRECTION
                 message_type = "correction"
+                target_queue = self.correction_queue_name
             else:
                 raise ValueError(f"Unsupported payload type: {type(payload)}")
 
@@ -569,12 +575,12 @@ class TransactionProcessor:
 
             # Send message to status update queue
             self.logger.info(
-                f"Sending {message_type} message for [{reference}] to queue: {self.status_update_queue_name}"
+                f"Sending {message_type} message for [{reference}] to queue: {target_queue}"
             )
 
             response = self.message_bus.send_message(
                 message,
-                self.status_update_queue_name,
+                target_queue,
                 "DAPP.transaction_processor"
             )
 

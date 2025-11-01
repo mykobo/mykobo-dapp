@@ -273,7 +273,9 @@ def info(reference) -> Response:
         "transactions/info.html",
         transaction_data=transaction,
         user_data=user_data,
-        wallet_data=wallet_data
+        wallet_data=wallet_data,
+        mykobo_iban=app.config.get("IBAN"),
+        explorer_url=f"https://explorer.solana.com/tx/{transaction.tx_hash}?cluster={app.config.get("SOLANA_CLUSTER")}"
     ), 201)
 
 
@@ -378,7 +380,8 @@ def list_transactions() -> Response:
                 "first_name": tx.first_name,
                 "last_name": tx.last_name,
                 "created_at": tx.created_at.isoformat() if tx.created_at else None,
-                "updated_at": tx.updated_at.isoformat() if tx.updated_at else None
+                "updated_at": tx.updated_at.isoformat() if tx.updated_at else None,
+                "tx_hash": tx.tx_hash
             })
 
         app.logger.info(f"Retrieved {len(transactions_data)} transactions for wallet {wallet_address}")
