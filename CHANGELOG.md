@@ -2,6 +2,22 @@
 
 <!-- version list -->
 
+## v1.5.0 (2025-11-02)
+
+### Chores
+
+- Move markdown into documentation
+  ([`2f6ac65`](https://github.com/mykobo/mykobo-dapp/commit/2f6ac6568faa9d0a7ce1a72c62f0f07427c6f489))
+
+- Only provide explorer url when we have a hash
+  ([`87a2c9f`](https://github.com/mykobo/mykobo-dapp/commit/87a2c9fd57d499e7439eb125c1f146300333fb6e))
+
+### Features
+
+- Withdrawals working
+  ([`2de3367`](https://github.com/mykobo/mykobo-dapp/commit/2de3367ad6ee10980732e9e770957f7beb9f6432))
+
+
 ## v1.4.2 (2025-11-01)
 
 ### Bug Fixes
