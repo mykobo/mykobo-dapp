@@ -28,6 +28,7 @@ class Config(object):
     SOLANA_RPC_URL = os.environ.get("SOLANA_RPC_URL")
     SOLANA_DISTRIBUTION_PRIVATE_KEY = os.environ.get("SOLANA_DISTRIBUTION_PRIVATE_KEY")
     SOLANA_CLUSTER = os.environ.get("SOLANA_CLUSTER")
+    SOLANA_RECEIVABLES_ADDRESS = os.environ.get("SOLANA_RECEIVABLES_ADDRESS")
     USDC_TOKEN_MINT = os.environ.get("USDC_TOKEN_MINT", "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v")  # USDC mainnet mint
     EURC_TOKEN_MINT = os.environ.get("EURC_TOKEN_MINT", "HzwqbKZw8HxMN6bF2yFZNrht3c2iXXzpKcFu7uBEDKtr")  # USDC mainnet mint
 

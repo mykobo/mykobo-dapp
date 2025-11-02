@@ -13,7 +13,7 @@ def retrieve_ip_address(request):
 
 
 def get_minimum_transaction_value() -> int:
-    return 10
+    return 1
 
 
 def get_maximum_transaction_value() -> int:

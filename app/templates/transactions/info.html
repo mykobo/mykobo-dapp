@@ -20,7 +20,7 @@
                     <span class="text-lg-start display-3 pt-1 p-3">{{ transaction_data.value | round(2) }}</span>
                 {% else %}
                     <span class="display-5">You Receive</span><br/>
-                    <span class="text-lg-start display-3 pt-1 p-3">{{ float(transaction_data.value) - float(transaction_data.fee) }}</span>
+                    <span class="text-lg-start display-3 pt-1 p-3">{{ (transaction_data.value - transaction_data.fee) | round(2) }}</span>
                 {% endif %}
             </div>
             {% if transaction_data.transaction_type.lower() == "withdraw" %}
