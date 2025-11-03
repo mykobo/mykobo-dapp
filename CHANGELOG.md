@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.5.2 (2025-11-03)
+
+### Bug Fixes
+
+- Cookie age not in sync with token expiry
+  ([`812d671`](https://github.com/mykobo/mykobo-dapp/commit/812d67116a59817dc2e1a8bd1c964c5b57b12784))
+
+
 ## v1.5.1 (2025-11-03)
 
 ### Bug Fixes
