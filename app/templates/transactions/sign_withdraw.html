@@ -60,26 +60,131 @@
     const amount = {{ transaction_data.value }};
     const currency = "{{ transaction_data.outgoing_currency }}";
 
+    // Detect all available Solana wallets
+    function detectAllSolanaWallets() {
+        const wallets = [];
+
+        // Check for Phantom
+        if (window.solana && window.solana.isPhantom) {
+            wallets.push({ provider: window.solana, name: 'Phantom', id: 'phantom' });
+        }
+
+        // Check for Solflare
+        if (window.solflare && window.solflare.isSolflare) {
+            wallets.push({ provider: window.solflare, name: 'Solflare', id: 'solflare' });
+        }
+
+        // Check for Backpack
+        if (window.backpack && window.backpack.isBackpack) {
+            wallets.push({ provider: window.backpack, name: 'Backpack', id: 'backpack' });
+        }
+
+        // Check for Coinbase Wallet
+        if (window.coinbaseSolana) {
+            wallets.push({ provider: window.coinbaseSolana, name: 'Coinbase Wallet', id: 'coinbase' });
+        }
+
+        // Check for any standard Solana wallet (fallback) - only if no specific wallet was detected
+        if (wallets.length === 0 && window.solana) {
+            wallets.push({ provider: window.solana, name: 'Solana Wallet', id: 'solana' });
+        }
+
+        return wallets;
+    }
+
+    // Get the authenticated wallet address from the user's wallet data
+    const authenticatedWalletAddress = "{{ wallet_data.wallet_address }}";
+
+    // Try to detect and connect to the wallet that matches the authenticated address
+    async function findAndConnectAuthenticatedWallet(wallets) {
+        // First, check if any wallet is already connected with the authenticated address
+        for (const wallet of wallets) {
+            try {
+                if (wallet.provider.isConnected && wallet.provider.publicKey) {
+                    const connectedAddress = wallet.provider.publicKey.toString();
+                    if (connectedAddress === authenticatedWalletAddress) {
+                        console.log(`Found authenticated wallet (already connected): ${wallet.name}`);
+                        return wallet;
+                    }
+                }
+            } catch (e) {
+                // Wallet not connected or doesn't support these properties
+                continue;
+            }
+        }
+
+        // If no wallet is already connected, try connecting to each wallet to find the authenticated one
+        for (const wallet of wallets) {
+            try {
+                console.log(`Attempting to connect to ${wallet.name}...`);
+                const resp = await wallet.provider.connect();
+                const connectedAddress = resp.publicKey.toString();
+
+                if (connectedAddress === authenticatedWalletAddress) {
+                    console.log(`Found authenticated wallet: ${wallet.name}`);
+                    return wallet;
+                } else {
+                    // Wrong wallet, disconnect it
+                    console.log(`${wallet.name} has different address, disconnecting...`);
+                    try {
+                        await wallet.provider.disconnect();
+                    } catch (disconnectError) {
+                        // Ignore disconnect errors
+                    }
+                }
+            } catch (e) {
+                // User rejected connection or wallet error, continue to next wallet
+                console.log(`Failed to connect to ${wallet.name}:`, e.message);
+                continue;
+            }
+        }
+
+        return null;
+    }
+
     document.getElementById('sign-transaction-btn').addEventListener('click', async function() {
         const statusMessage = document.getElementById('status-message');
         const spinner = document.getElementById('loading-spinner');
         const signButton = document.getElementById('sign-transaction-btn');
 
         try {
-            // Check if Solana wallet is available
-            if (!window.solana || !window.solana.isPhantom) {
-                statusMessage.innerHTML = '<div class="alert alert-danger">Please install Phantom wallet or another Solana wallet extension.</div>';
+            // Show loading state
+            spinner.style.display = 'inline-block';
+            statusMessage.innerHTML = '<div class="alert alert-info">Looking for your authenticated wallet...</div>';
+            signButton.disabled = true;
+
+            // Detect all available Solana wallets
+            const wallets = detectAllSolanaWallets();
+
+            if (wallets.length === 0) {
+                spinner.style.display = 'none';
+                signButton.disabled = false;
+                statusMessage.innerHTML = '<div class="alert alert-danger">No Solana wallet detected. Please install a Solana wallet extension (Phantom, Solflare, Backpack, or Coinbase Wallet) and refresh the page.</div>';
                 return;
             }
 
-            // Show loading state
-            spinner.style.display = 'inline-block';
-            statusMessage.innerHTML = '<div class="alert alert-info">Requesting wallet signature...</div>';
-            signButton.disabled = true;
+            // Try to find and connect to the wallet that was used for authentication
+            const wallet = await findAndConnectAuthenticatedWallet(wallets);
 
-            // Connect to wallet
-            const resp = await window.solana.connect();
-            console.log('Connected to wallet:', resp.publicKey.toString());
+            if (!wallet) {
+                spinner.style.display = 'none';
+                signButton.disabled = false;
+                statusMessage.innerHTML = `
+                    <div class="alert alert-danger">
+                        <strong>Authenticated wallet not found</strong><br/>
+                        We could not find the wallet you used to authenticate (${authenticatedWalletAddress.substring(0, 8)}...${authenticatedWalletAddress.substring(authenticatedWalletAddress.length - 6)}).<br/><br/>
+                        Please ensure:<br/>
+                        • The wallet extension you used to log in is still installed<br/>
+                        • The wallet is unlocked<br/>
+                        • You're using the same browser and profile<br/><br/>
+                        For security reasons, you must use the same wallet you authenticated with.
+                    </div>
+                `;
+                return;
+            }
+
+            // Wallet is now connected (from findAndConnectAuthenticatedWallet)
+            console.log(`Using authenticated wallet: ${wallet.name}`);
 
             // Decode the base64 transaction
             const transactionBuffer = Uint8Array.from(atob(unsignedTransaction), c => c.charCodeAt(0));
@@ -88,11 +193,17 @@
             const transaction = window.solanaWeb3.Transaction.from(transactionBuffer);
 
             // Sign and send transaction
-            statusMessage.innerHTML = '<div class="alert alert-info">Please approve the transaction in your wallet...</div>';
+            statusMessage.innerHTML = `<div class="alert alert-info">Please approve the transaction in ${wallet.name}...</div>`;
 
-            const signedTransaction = await window.solana.signAndSendTransaction(transaction);
+            const signedTransaction = await wallet.provider.signAndSendTransaction(transaction);
 
             console.log('Transaction signature:', signedTransaction.signature);
+
+            // Verify the transaction was signed by the authenticated wallet
+            // The wallet provider should still be connected to the authenticated address
+            if (wallet.provider.publicKey && wallet.provider.publicKey.toString() !== authenticatedWalletAddress) {
+                throw new Error('Transaction was not signed by the authenticated wallet. This should not happen.');
+            }
 
             // Wait for transaction to be confirmed on Solana before verifying with backend
             statusMessage.innerHTML = '<div class="alert alert-info">Waiting for blockchain confirmation...</div>';
