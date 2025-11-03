@@ -491,7 +491,7 @@ class TestAuthEndpoints:
         assert 'wallet_address' in data
         assert 'expires_in' in data
         assert data['wallet_address'] == 'test_wallet'
-        assert data['expires_in'] == 86400
+        assert data['expires_in'] == 1800  # 30 minutes in seconds
 
         # Verify JWT token is valid
         token = data['token']

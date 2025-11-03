@@ -205,11 +205,12 @@ def verify_signature():
     if not is_valid:
         return jsonify({'error': error}), 401
 
-    # Generate JWT token
+    # Generate JWT token (30 minutes expiry to match cookie max_age)
+    token_expiry_minutes = 30
     token = jwt.encode(
         {
             'wallet_address': wallet_address,
-            'exp': datetime.now(UTC) + timedelta(minutes=30),
+            'exp': datetime.now(UTC) + timedelta(minutes=token_expiry_minutes),
             'iat': datetime.now(UTC)
         },
         current_app.config['SECRET_KEY'],
@@ -220,14 +221,32 @@ def verify_signature():
     session['wallet_address'] = wallet_address
     session['authenticated'] = True
 
+    token_expiry_seconds = token_expiry_minutes * 60
+
     response = make_response(jsonify({
         'token': token,
         'wallet_address': wallet_address,
-        'expires_in': 86400  # 24 hours
+        'expires_in': token_expiry_seconds
     }), 200)
 
-    response.set_cookie('auth_token', token, max_age=86400)
-    response.set_cookie('wallet_address', token, max_age=86400)
+    # Set cookies with proper security flags
+    # SameSite=Lax allows the cookie to be sent on top-level navigation (redirects)
+    response.set_cookie(
+        'auth_token',
+        token,
+        max_age=token_expiry_seconds,
+        httponly=False,  # Need to access from JavaScript
+        secure=current_app.config.get('SESSION_COOKIE_SECURE', False),
+        samesite='Lax'
+    )
+    response.set_cookie(
+        'wallet_address',
+        wallet_address,
+        max_age=token_expiry_seconds,
+        httponly=False,
+        secure=current_app.config.get('SESSION_COOKIE_SECURE', False),
+        samesite='Lax'
+    )
     return response
 
 @auth_bp.route('/logout', methods=['POST', 'GET'])

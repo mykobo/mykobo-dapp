@@ -413,7 +413,19 @@ export async function redirectToLobby(token: string, _walletAddress?: string): P
     // The token is also stored in localStorage for client-side API calls
     const isSecure = API_BASE_URL.startsWith('https')
     const secureFlag = isSecure ? '; secure' : ''
-    document.cookie = `auth_token=${token}; path=/${secureFlag}; samesite=lax`
+
+    // Calculate expiry (30 minutes from now)
+    const expiryDate = new Date()
+    expiryDate.setTime(expiryDate.getTime() + (30 * 60 * 1000))
+    const expiresFlag = `; expires=${expiryDate.toUTCString()}`
+
+    // Set cookie with SameSite=Lax for cross-origin navigation compatibility
+    document.cookie = `auth_token=${token}; path=/${secureFlag}; samesite=lax${expiresFlag}`
+
+    console.log('Cookie set, waiting before redirect to ensure cookie persistence...')
+
+    // Small delay to ensure cookie is written before redirect (Chrome cookie timing issue)
+    await new Promise(resolve => setTimeout(resolve, 100))
 
     // Redirect to Flask backend lobby route without token in URL
     window.location.href = `${API_BASE_URL}/user/dashboard`
