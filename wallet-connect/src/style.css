@@ -1,7 +1,4 @@
 :root {
-  background-color: #181818;
-  color: rgba(255, 255, 255, 0.87);
-  color-scheme: light dark;
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
   font-synthesis: none;
   font-weight: 400;
@@ -13,9 +10,306 @@
   -webkit-text-size-adjust: 100%;
 }
 
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  min-height: 100vh;
+  background: linear-gradient(180deg, #929292 35.58%, #585B68 70%);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+#app {
+  width: 100%;
+  max-width: 600px;
+}
+
+.app-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.header h1 {
+  font-size: 2rem;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #ffffff;
+}
+
+.subtitle {
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.8);
+  font-weight: 400;
+}
+
+.status-card,
+.wallet-section {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  border-radius: 12px;
+  padding: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.status-card h2,
+.wallet-section h2 {
+  font-size: 1.125rem;
+  font-weight: 500;
+  margin-bottom: 16px;
+  color: #ffffff;
+}
+
+.status-content {
+  font-size: 0.875rem;
+  line-height: 1.8;
+}
+
+.status-label {
+  color: rgba(255, 255, 255, 0.7);
+  font-weight: 400;
+}
+
+.status-value {
+  color: #ffffff;
+  font-weight: 500;
+  font-family: 'Courier New', monospace;
+  word-break: break-all;
+}
+
+.status-connected {
+  color: #4ade80;
+}
+
+.auth-status {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.875rem;
+}
+
+.auth-error {
+  color: #f87171;
+  font-size: 0.875rem;
+  margin-top: 8px;
+  min-height: 20px;
+}
+
+.wallet-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.wallet-button {
+  width: 100%;
+  padding: 16px 20px;
+  background: linear-gradient(180deg, #ECECEC 0%, #D1D0D0 100%);
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 1rem;
+  font-weight: 500;
+  color: #181818;
+  text-align: left;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.wallet-button:hover:not(:disabled) {
+  background: linear-gradient(180deg, #f5f5f5 0%, #e0e0e0 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.wallet-button:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.wallet-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: linear-gradient(180deg, #d0d0d0 0%, #b8b8b8 100%);
+}
+
+.wallet-name {
+  display: block;
+  font-weight: 500;
+}
+
+.wallet-status {
+  font-size: 0.875rem;
+  color: #666;
+  font-weight: 400;
+}
+
+.disconnect-button {
+  margin-top: 16px;
+  padding: 10px 20px;
+  background: rgba(248, 113, 113, 0.2);
+  border: 1px solid rgba(248, 113, 113, 0.4);
+  border-radius: 8px;
+  color: #f87171;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.disconnect-button:hover {
+  background: rgba(248, 113, 113, 0.3);
+  border-color: rgba(248, 113, 113, 0.6);
+}
+
+/* Lobby/Authorized Screen Styles */
+.lobby-container {
+  max-width: 600px;
+  gap: 15px;
+}
+
+.wallet-info-button {
+  width: 100%;
+  padding: 12px 20px;
+  background: linear-gradient(180deg, #ECECEC 0%, #D1D0D0 100%);
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.875rem;
+  color: #181818;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.wallet-info-button:hover {
+  background: linear-gradient(180deg, #f5f5f5 0%, #e0e0e0 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.wallet-address {
+  font-family: 'Courier New', monospace;
+  font-weight: 500;
+}
+
+.wallet-balance {
+  font-weight: 600;
+}
+
+.currency-buttons {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  width: 100%;
+}
+
+.currency-button {
+  padding: 12px 16px;
+  background: #00A0FF;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  color: white;
+  font-size: 0.875rem;
+  font-weight: 500;
+  box-shadow: 0 2px 8px rgba(0, 160, 255, 0.3);
+  transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.currency-button:hover {
+  background: #0090e6;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 160, 255, 0.4);
+}
+
+.currency-icon {
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.currency-amount {
+  font-size: 0.875rem;
+  font-weight: 400;
+}
+
+.action-button {
+  width: 100%;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 500;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+  text-align: center;
+}
+
+.primary-button {
+  background: #00A0FF;
+  color: white;
+}
+
+.primary-button:hover {
+  background: #0090e6;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 160, 255, 0.4);
+}
+
+.secondary-button {
+  background: #929292;
+  color: white;
+}
+
+.secondary-button:hover {
+  background: #a0a0a0;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.action-buttons-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  width: 100%;
+}
+
+.disconnect-button-lobby {
+  width: 100%;
+  padding: 10px 20px;
+  background: rgba(248, 113, 113, 0.15);
+  border: 1px solid rgba(248, 113, 113, 0.3);
+  border-radius: 10px;
+  color: #f87171;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-top: 5px;
+}
+
+.disconnect-button-lobby:hover {
+  background: rgba(248, 113, 113, 0.25);
+  border-color: rgba(248, 113, 113, 0.5);
+}
+
 @media (prefers-color-scheme: light) {
-  :root {
-    background-color: #f8f8f8;
-    color: #181818;
-  }
+  /* Keep dark theme even in light mode for consistency with design */
 }

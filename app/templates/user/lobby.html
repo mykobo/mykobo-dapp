@@ -1,0 +1,31 @@
+{% extends "layouts/authenticated.html" %}
+{% block title %} Let's Get Started {% endblock %}
+{% block content %}
+    <div id="app">
+        <div class="app-container lobby-container">
+            <!-- Wallet Info Button -->
+            <button class="wallet-info-button">
+                <span class="wallet-address">{{ wallet_data.wallet_address[:6] }}...{{ wallet_data.wallet_address[-4:] }}</span>
+                <span id="wallet-balance" class="wallet-balance">{{ wallet_balance }}</span>
+            </button>
+
+            <!-- Currency Balance Buttons -->
+            {% include "partials/currency_buttons.html" %}
+
+            <form method="POST" action="{{ url_for('user.lobby') }}"
+                  id="register-form">
+                {{ form.csrf_token }}
+                <!-- Email -->
+
+                <div class="form-group">
+                    <label for="email_address" class="form-label">{{ form.email_address.description }}</label>
+                    {{ form.email_address(class="form-input", id="email_address", placeholder="your.email@example.com", required=True) }}
+                </div>
+
+                <button type="submit" class="mt-4 action-button primary-button" id="submit-btn">
+                    Continue
+                </button>
+            </form>
+        </div>
+    </div>
+{% endblock %}

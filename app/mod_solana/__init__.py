@@ -1,3 +1,3 @@
-from .transaction import transaction_bp
+from .transaction import bp
 
-__all__ = ("transaction_bp")
+__all__ = ("bp")

@@ -1,7 +1,7 @@
 #!/bin/sh
 
-if [ "${ENV}" = "development" ]; then
-    flask --app "app:create_app('${ENV}')" run --host=${HOSTNAME}
+if [ "${ENV}" = "local" ]; then
+    flask --app "app:create_app('${ENV}')" run --host="${HOSTNAME}"
 else
-    gunicorn -w "${WORKER_COUNT}" -b "${HOSTNAME}":"${SERVICE_PORT}" "app:create_app('${ENV}')"
+    gunicorn --workers "${WORKER_COUNT}" --timeout 60 --bind :"${SERVICE_PORT}" "app:create_app('${ENV}')" --error-logfile - --enable-stdio-inheritance
 fi

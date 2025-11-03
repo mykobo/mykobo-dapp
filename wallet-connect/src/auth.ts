@@ -399,50 +399,39 @@ export function logout(): void {
 }
 
 /**
- * Redirect to lobby with auth token via fetch request
- * Sends token as Authorization Bearer header
+ * Navigate to dashboard with auth token
+ * Redirects to backend /user/dashboard route
  *
- * @param token - JWT token to send as Authorization header
+ * @param token - JWT token (stored in localStorage, sent via cookie)
+ * @param _walletAddress - Optional wallet address (unused, kept for compatibility)
  */
-export async function redirectToLobby(token: string): Promise<void> {
+export async function redirectToLobby(token: string, _walletAddress?: string): Promise<void> {
   try {
-    const lobbyUrl = `${API_BASE_URL}/user/lobby`
-    console.log('Fetching lobby with Authorization header:', lobbyUrl)
+    console.log('Redirecting to /user/dashboard...')
 
-    // Make authenticated request to lobby endpoint
-    const response = await fetch(lobbyUrl, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      credentials: 'include',
-    })
+    // Set token as a cookie for the backend to read
+    // The token is also stored in localStorage for client-side API calls
+    const isSecure = API_BASE_URL.startsWith('https')
+    const secureFlag = isSecure ? '; secure' : ''
 
-    if (!response.ok) {
-      throw new Error(`Lobby request failed: ${response.status} ${response.statusText}`)
-    }
+    // Calculate expiry (30 minutes from now)
+    const expiryDate = new Date()
+    expiryDate.setTime(expiryDate.getTime() + (30 * 60 * 1000))
+    const expiresFlag = `; expires=${expiryDate.toUTCString()}`
 
-    // Check if response is HTML
-    const contentType = response.headers.get('content-type')
+    // Set cookie with SameSite=Lax for cross-origin navigation compatibility
+    document.cookie = `auth_token=${token}; path=/${secureFlag}; samesite=lax${expiresFlag}`
 
-    if (contentType?.includes('text/html')) {
-      // Replace document with returned HTML
-      const html = await response.text()
-      document.open()
-      document.write(html)
-      document.close()
+    console.log('Cookie set, waiting before redirect to ensure cookie persistence...')
 
-      // Update URL without reload
-      window.history.pushState({}, '', '/user/lobby')
-    } else {
-      // For JSON responses, navigate to the lobby URL
-      const data = await response.json()
-      console.log('Lobby response:', data)
-      window.location.href = '/user/lobby'
-    }
+    // Small delay to ensure cookie is written before redirect (Chrome cookie timing issue)
+    await new Promise(resolve => setTimeout(resolve, 100))
+
+    // Redirect to Flask backend lobby route without token in URL
+    window.location.href = `${API_BASE_URL}/user/dashboard`
   } catch (error) {
-    console.error('Failed to fetch lobby:', error)
+    console.error('Failed to redirect to dashboard:', error)
     throw error
   }
 }
+

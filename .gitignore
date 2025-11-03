@@ -77,6 +77,7 @@ poetry.lock
 # Environment variables
 .env
 .env.*
+.docker.env
 
 # Logs
 *.log
@@ -93,5 +94,8 @@ node_modules/
 .envrc
 package-lock.json
 wallet-connect/static/
-/app/static/css/
 /app/static/js/
+/app/static/css/index*.css
+/app/templates/layouts/base.html.bak
+/app/templates/layouts/base.html-e
+/app/static/css/main.css.backup

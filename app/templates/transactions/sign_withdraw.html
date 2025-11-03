@@ -1,0 +1,324 @@
+{% extends "layouts/authenticated.html" %}
+{% block title %} Sign Withdrawal {% endblock title %}
+{% block content %}
+
+    <!-- Wallet Info Button -->
+    <a href="{{ url_for("user.dashboard") }}" class="wallet-info-button mb-2">
+        <span class="wallet-address">Welcome back {{ user_data.first_name }} {{ user_data.last_name }}! </span>
+        <span id="wallet-balance"
+              class="wallet-balance">{{ wallet_data.wallet_address[:9] }}...{{ wallet_data.wallet_address[-4:] }}</span>
+    </a>
+
+    <!-- Currency Balance Buttons -->
+    {% include "partials/currency_buttons.html" %}
+
+    <div class="card card-body rounded-3 mb-4 mt-4">
+        <div class="row">
+            <span class="display-5">You are withdrawing</span><br/>
+            <span class="text-lg-start display-3 pt-1 p-3">{{ transaction_data.value | round(2) }} {{ transaction_data.outgoing_currency }}</span>
+        </div>
+        <div class="row">
+            <div class="display-5">Fee</div>
+            <div class="pt-1 p-3">{{ transaction_data.fee | round(2) }} {{ transaction_data.outgoing_currency }}</div>
+        </div>
+        <div class="row">
+            <div class="display-5">Reference</div>
+            <div class="pt-1 p-3">{{ reference }}</div>
+            <br/>
+        </div>
+    </div>
+
+    <div class="card card-body rounded-3 mb-4">
+        <div class="alert alert-info p-2" role="alert">
+            <p><strong>Sign with your Solana wallet</strong></p>
+            <p>Please approve the transaction in your wallet to complete the withdrawal. The transaction will transfer {{ transaction_data.value | round(2) }} {{ transaction_data.outgoing_currency }} from your wallet.</p>
+        </div>
+
+        <div id="transaction-status" class="mb-3">
+            <div class="spinner-border text-primary" role="status" style="display: none;" id="loading-spinner">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <div id="status-message"></div>
+        </div>
+
+        <button type="button" class="action-button primary-button mb-3" id="sign-transaction-btn">
+            Sign Transaction with Wallet
+        </button>
+
+        <button type="button" class="action-button secondary-button" id="cancel-btn" onclick="window.location.href='{{ url_for('user.dashboard') }}'">
+            Cancel
+        </button>
+    </div>
+
+{% endblock %}
+
+{% block additional_javascript %}
+<script>
+    const unsignedTransaction = "{{ unsigned_transaction }}";
+    const reference = "{{ reference }}";
+    const destination = "{{ destination }}";
+    const amount = {{ transaction_data.value }};
+    const currency = "{{ transaction_data.outgoing_currency }}";
+
+    // Detect all available Solana wallets
+    function detectAllSolanaWallets() {
+        const wallets = [];
+
+        // Check for Phantom
+        if (window.solana && window.solana.isPhantom) {
+            wallets.push({ provider: window.solana, name: 'Phantom', id: 'phantom' });
+        }
+
+        // Check for Solflare
+        if (window.solflare && window.solflare.isSolflare) {
+            wallets.push({ provider: window.solflare, name: 'Solflare', id: 'solflare' });
+        }
+
+        // Check for Backpack
+        if (window.backpack && window.backpack.isBackpack) {
+            wallets.push({ provider: window.backpack, name: 'Backpack', id: 'backpack' });
+        }
+
+        // Check for Coinbase Wallet
+        if (window.coinbaseSolana) {
+            wallets.push({ provider: window.coinbaseSolana, name: 'Coinbase Wallet', id: 'coinbase' });
+        }
+
+        // Check for any standard Solana wallet (fallback) - only if no specific wallet was detected
+        if (wallets.length === 0 && window.solana) {
+            wallets.push({ provider: window.solana, name: 'Solana Wallet', id: 'solana' });
+        }
+
+        return wallets;
+    }
+
+    // Get the authenticated wallet address from the user's wallet data
+    const authenticatedWalletAddress = "{{ wallet_data.wallet_address }}";
+
+    // Try to detect and connect to the wallet that matches the authenticated address
+    async function findAndConnectAuthenticatedWallet(wallets) {
+        // First, check if any wallet is already connected with the authenticated address
+        for (const wallet of wallets) {
+            try {
+                if (wallet.provider.isConnected && wallet.provider.publicKey) {
+                    const connectedAddress = wallet.provider.publicKey.toString();
+                    if (connectedAddress === authenticatedWalletAddress) {
+                        console.log(`Found authenticated wallet (already connected): ${wallet.name}`);
+                        return wallet;
+                    }
+                }
+            } catch (e) {
+                // Wallet not connected or doesn't support these properties
+                continue;
+            }
+        }
+
+        // If no wallet is already connected, try connecting to each wallet to find the authenticated one
+        for (const wallet of wallets) {
+            try {
+                console.log(`Attempting to connect to ${wallet.name}...`);
+                const resp = await wallet.provider.connect();
+                const connectedAddress = resp.publicKey.toString();
+
+                if (connectedAddress === authenticatedWalletAddress) {
+                    console.log(`Found authenticated wallet: ${wallet.name}`);
+                    return wallet;
+                } else {
+                    // Wrong wallet, disconnect it
+                    console.log(`${wallet.name} has different address, disconnecting...`);
+                    try {
+                        await wallet.provider.disconnect();
+                    } catch (disconnectError) {
+                        // Ignore disconnect errors
+                    }
+                }
+            } catch (e) {
+                // User rejected connection or wallet error, continue to next wallet
+                console.log(`Failed to connect to ${wallet.name}:`, e.message);
+                continue;
+            }
+        }
+
+        return null;
+    }
+
+    document.getElementById('sign-transaction-btn').addEventListener('click', async function() {
+        const statusMessage = document.getElementById('status-message');
+        const spinner = document.getElementById('loading-spinner');
+        const signButton = document.getElementById('sign-transaction-btn');
+
+        try {
+            // Show loading state
+            spinner.style.display = 'inline-block';
+            statusMessage.innerHTML = '<div class="alert alert-info">Looking for your authenticated wallet...</div>';
+            signButton.disabled = true;
+
+            // Detect all available Solana wallets
+            const wallets = detectAllSolanaWallets();
+
+            if (wallets.length === 0) {
+                spinner.style.display = 'none';
+                signButton.disabled = false;
+                statusMessage.innerHTML = '<div class="alert alert-danger">No Solana wallet detected. Please install a Solana wallet extension (Phantom, Solflare, Backpack, or Coinbase Wallet) and refresh the page.</div>';
+                return;
+            }
+
+            // Try to find and connect to the wallet that was used for authentication
+            const wallet = await findAndConnectAuthenticatedWallet(wallets);
+
+            if (!wallet) {
+                spinner.style.display = 'none';
+                signButton.disabled = false;
+                statusMessage.innerHTML = `
+                    <div class="alert alert-danger">
+                        <strong>Authenticated wallet not found</strong><br/>
+                        We could not find the wallet you used to authenticate (${authenticatedWalletAddress.substring(0, 8)}...${authenticatedWalletAddress.substring(authenticatedWalletAddress.length - 6)}).<br/><br/>
+                        Please ensure:<br/>
+                        • The wallet extension you used to log in is still installed<br/>
+                        • The wallet is unlocked<br/>
+                        • You're using the same browser and profile<br/><br/>
+                        For security reasons, you must use the same wallet you authenticated with.
+                    </div>
+                `;
+                return;
+            }
+
+            // Wallet is now connected (from findAndConnectAuthenticatedWallet)
+            console.log(`Using authenticated wallet: ${wallet.name}`);
+
+            // Decode the base64 transaction
+            const transactionBuffer = Uint8Array.from(atob(unsignedTransaction), c => c.charCodeAt(0));
+
+            // Create transaction from buffer
+            const transaction = window.solanaWeb3.Transaction.from(transactionBuffer);
+
+            // Sign and send transaction
+            statusMessage.innerHTML = `<div class="alert alert-info">Please approve the transaction in ${wallet.name}...</div>`;
+
+            const signedTransaction = await wallet.provider.signAndSendTransaction(transaction);
+
+            console.log('Transaction signature:', signedTransaction.signature);
+
+            // Verify the transaction was signed by the authenticated wallet
+            // The wallet provider should still be connected to the authenticated address
+            if (wallet.provider.publicKey && wallet.provider.publicKey.toString() !== authenticatedWalletAddress) {
+                throw new Error('Transaction was not signed by the authenticated wallet. This should not happen.');
+            }
+
+            // Wait for transaction to be confirmed on Solana before verifying with backend
+            statusMessage.innerHTML = '<div class="alert alert-info">Waiting for blockchain confirmation...</div>';
+
+            // Wait 5 seconds to allow transaction to propagate to RPC nodes
+            // Solana finalization takes ~12-14 seconds, but RPC availability can vary
+            await new Promise(resolve => setTimeout(resolve, 5000));
+
+            // Send signature to backend to confirm transaction (with retry logic)
+            statusMessage.innerHTML = '<div class="alert alert-info">Confirming transaction with server...</div>';
+
+            // Get auth token from cookie
+            function getCookie(name) {
+                const value = `; ${document.cookie}`;
+                const parts = value.split(`; ${name}=`);
+                if (parts.length === 2) return parts.pop().split(';').shift();
+            }
+
+            const authToken = getCookie('auth_token');
+
+            // Retry confirmation up to 3 times with increasing delays
+            let confirmResponse = null;
+            let confirmData = null;
+            let lastError = null;
+
+            for (let attempt = 1; attempt <= 3; attempt++) {
+                try {
+                    confirmResponse = await fetch("{{ url_for('transaction.confirm_withdraw_transaction', reference=reference) }}", {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer ' + authToken
+                        },
+                        body: JSON.stringify({
+                            signature: signedTransaction.signature
+                        })
+                    });
+
+                    confirmData = await confirmResponse.json();
+
+                    // If successful, break out of retry loop
+                    if (confirmResponse.ok) {
+                        break;
+                    }
+
+                    // If transaction not found (404), wait and retry
+                    if (confirmResponse.status === 404 && attempt < 3) {
+                        console.log(`Attempt ${attempt}: Transaction not yet confirmed on-chain, retrying...`);
+                        statusMessage.innerHTML = `<div class="alert alert-info">Waiting for transaction confirmation (attempt ${attempt}/3)...</div>`;
+                        await new Promise(resolve => setTimeout(resolve, 4000 * attempt)); // Exponential backoff: 4s, 8s
+                        continue;
+                    }
+
+                    // For other errors, save and break
+                    lastError = confirmData;
+                    break;
+
+                } catch (fetchError) {
+                    console.error(`Attempt ${attempt} failed:`, fetchError);
+                    lastError = { message: fetchError.message };
+                    if (attempt < 3) {
+                        await new Promise(resolve => setTimeout(resolve, 4000 * attempt)); // 4s, 8s
+                    }
+                }
+            }
+
+            if (confirmResponse && confirmResponse.ok) {
+                // Show success message
+                spinner.style.display = 'none';
+                statusMessage.innerHTML = `
+                    <div class="alert alert-success">
+                        <strong>Transaction confirmed successfully!</strong><br/>
+                        Signature: ${signedTransaction.signature.substring(0, 10)}...${signedTransaction.signature.substring(signedTransaction.signature.length - 10)}<br/>
+                        Redirecting to transaction details...
+                    </div>
+                `;
+
+                // Redirect to transaction info page after a delay
+                setTimeout(() => {
+                    window.location.href = "{{ url_for('transaction.info', reference=reference) }}";
+                }, 3000);
+            } else {
+                // Show error but transaction was still submitted to blockchain
+                spinner.style.display = 'none';
+                const errorMsg = lastError ? (lastError.message || 'Unknown error') : 'Failed to confirm after multiple attempts';
+                statusMessage.innerHTML = `
+                    <div class="alert alert-warning">
+                        <strong>Transaction submitted to blockchain but confirmation failed</strong><br/>
+                        Signature: ${signedTransaction.signature.substring(0, 10)}...${signedTransaction.signature.substring(signedTransaction.signature.length - 10)}<br/>
+                        Error: ${errorMsg}<br/>
+                        Please contact support with this signature.
+                    </div>
+                `;
+                signButton.disabled = false;
+            }
+        } catch (error) {
+            spinner.style.display = 'none';
+            signButton.disabled = false;
+
+            let errorMessage = 'An error occurred while signing the transaction.';
+
+            if (error.message) {
+                if (error.message.includes('User rejected')) {
+                    errorMessage = 'Transaction was cancelled.';
+                } else {
+                    errorMessage = error.message;
+                }
+            }
+
+            console.error('Transaction error:', error);
+            statusMessage.innerHTML = `<div class="alert alert-danger"><strong>Error:</strong> ${errorMessage}</div>`;
+        }
+    });
+</script>
+
+<!-- Include Solana Web3.js -->
+<script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js"></script>
+{% endblock %}

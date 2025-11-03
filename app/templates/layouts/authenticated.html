@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>
+        {% block title %}MYKOBO DApp{% endblock %}
+    </title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}"/>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/mykobo.css') }}"/>
+</head>
+<body>
+<div id="app">
+    {% include 'partials/header.html' %}
+    {% include 'partials/flash.html' %}
+    {% block content %}{% endblock %}
+</div>
+{% block additional_javascript %}
+{% endblock %}
+</body>
+</html>

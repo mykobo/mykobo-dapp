@@ -1,0 +1,128 @@
+{% extends "layouts/authenticated.html" %}
+{% block title %}Create Profile{% endblock %}
+
+{% block content %}
+    <div id="app">
+        <div class="register-container">
+            <!-- Wallet Info Card -->
+            <div class="wallet-info-card">
+                <div class="wallet-info-row">
+                    Welcome, in order to proceed please provide us with some basic details about yourself, please use
+                    the same name that appears on your bank account. This name also has to match the name on you ID
+                    (International Passport, Driver's License or National ID. This will be for verification purposes in
+                    the next step.
+                </div>
+            </div>
+
+            <!-- Registration Form -->
+            <form role="form"
+                  action="{{ url_for("user.register") }}"
+                  method="POST">
+                {{ form.csrf_token }}
+                <div class="form-group mb-2">
+                    <label>{{ form.first_name.description }}</label>
+                    {{ form.first_name(class="form-input p_input", id="firstNameInput", placeholder="First Name") }}
+                </div>
+                <div class="form-group mb-2">
+                    <label>{{ form.last_name.description }}</label>
+                    {{ form.last_name(class="form-input p_input", id="lastNameInput", placeholder="Last name") }}
+                </div>
+                <div class="form-group mb-2">
+                    <label>{{ form.email_address.description }}</label>
+                    {{ form.email_address(class="form-input p_input", id="emailAddress", placeholder="Email Address") }}
+                </div>
+                <div class="form-group mb-2">
+                    <label>{{ form.bank_account_number.description }}</label>
+                    {{ form.bank_account_number(class="form-input p_input", id="bankAccountNumber", placeholder="IBAN") }}
+                </div>
+                <div class="form-group mb-2">
+                    <label>{{ form.bank_number.description }}</label>
+                    {{ form.bank_number(class="form-input p_input", id="bankNumber", placeholder="BIC") }}
+                </div>
+                <div class="form-group mb-2">
+                    <label>{{ form.address_line_1.description }}</label>
+                    {{ form.address_line_1(class="form-input p_input", id="addressLine1", placeholder="Address") }}
+                </div>
+                <div class="form-group mb-2">
+                    <label>{{ form.address_line_2.description }}</label>
+                    {{ form.address_line_2(class="form-input p_input", id="addressLine2", placeholder="City") }}
+                </div>
+                <div class="form-group mb-2">
+                    <label>{{ form.country.description }}</label>
+                    {{ form.country(class="form-input form-select", id="country") }}
+                </div>
+
+                <div class="alert alert-info mt-3">
+                    <h5>Before you continue</h5>
+                    <p>
+                        By signing up to this service you are confirming that you are opening this account on your own behalf,
+                        and are not acting on behalf of any other person or entity. You are also confirming that the
+                        documentation you provide for verification purposes are not for anyone else but the person creating this
+                        account.
+                    </p>
+                </div>
+
+                <button type="submit" class="mt-4 action-button primary-button" id="submit-btn">
+                    Continue
+                </button>
+            </form>
+        </div>
+    </div>
+{% endblock %}
+{% block additional_javascript %}
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const form = document.querySelector('form[role="form"]');
+            const submitBtn = form.querySelector('button[type="submit"]');
+            const ibanInput = document.getElementById('bankAccountNumber');
+            const bankNumberInput = document.getElementById('bankNumber');
+            const bankNumberDesc = document.getElementById('bankNumberDesc');
+            const bankAccountNumberDesc = document.getElementById('bankAccountNumberDesc');
+
+            form.addEventListener('submit', function () {
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'processing...';
+            });
+
+            ibanInput.addEventListener('input', function () {
+                if (ibanInput.value.trim()) {
+                    bankNumberInput.value = 'Deriving Bank Number';
+                } else {
+                    bankNumberInput.value = '';
+                }
+            });
+
+            ibanInput.addEventListener('blur', function () {
+                const iban = ibanInput.value.trim();
+                if (iban) {
+                    bankNumberInput.value = 'Deriving Bank Number';
+                    fetch(`/iban_check?iban=${encodeURIComponent(iban)}`)
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.valid) {
+                                if (data.bic){
+                                    bankNumberInput.value = data.bic;
+                                    if (bankNumberDesc) bankNumberDesc.textContent = data.bank_name || '{{ form.bank_number.description }}';
+                                }
+                            } else {
+                                if (data.bic){
+                                    bankNumberInput.value = data.bic;
+                                }
+                                if (bankAccountNumberDesc) bankAccountNumberDesc.textContent = data.message || '{{ form.bank_account_number.description }}';
+                            }
+
+                        })
+                        .catch(error => {
+                            bankNumberInput.value = '';
+                            if (bankAccountNumberDesc) bankAccountNumberDesc.textContent = data.message ||  '{{ form.bank_account_number.description }}';
+                            console.error('Error:', error);
+                        });
+                } else {
+                    bankNumberInput.value = '';
+                    if (bankNumberDesc) bankNumberDesc.textContent = '{{ form.bank_number.description }}';
+                    if (bankAccountNumberDesc) bankAccountNumberDesc.textContent = '{{ form.bank_account_number.description }}';
+                }
+            });
+        });
+    </script>
+{% endblock %}

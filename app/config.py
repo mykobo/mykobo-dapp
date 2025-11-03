@@ -17,17 +17,32 @@ class Config(object):
     FEE_ENDPOINT = f"{BUSINESS_SERVER_HOST}/fees"
     IBAN = os.environ.get("IBAN")
     TRANSACTION_TOPIC = os.environ.get("TRANSACTION_TOPIC")
+    SQS_QUEUE_URL = os.environ.get("SQS_QUEUE_URL")
+    TRANSACTION_QUEUE_NAME = os.environ.get("TRANSACTION_QUEUE_NAME")  # will be deprecated once we move to kafka
+    TRANSACTION_STATUS_UPDATE_QUEUE_NAME = os.environ.get("TRANSACTION_STATUS_UPDATE_QUEUE_NAME")
+    NOTIFICATIONS_QUEUE_NAME = os.environ.get("NOTIFICATIONS_QUEUE_NAME")
+    PAYMENTS_QUEUE_NAME = os.environ.get("PAYMENTS_QUEUE_NAME")
+    CORRECTION_QUEUE_NAME = os.environ.get("CORRECTION_QUEUE_NAME")
 
     # Solana configuration
-    SOLANA_RPC_URL = os.environ.get("SOLANA_RPC_URL", "https://api.mainnet-beta.solana.com")
+    SOLANA_RPC_URL = os.environ.get("SOLANA_RPC_URL")
     SOLANA_DISTRIBUTION_PRIVATE_KEY = os.environ.get("SOLANA_DISTRIBUTION_PRIVATE_KEY")
+    SOLANA_CLUSTER = os.environ.get("SOLANA_CLUSTER")
+    SOLANA_RECEIVABLES_ADDRESS = os.environ.get("SOLANA_RECEIVABLES_ADDRESS")
     USDC_TOKEN_MINT = os.environ.get("USDC_TOKEN_MINT", "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v")  # USDC mainnet mint
+    EURC_TOKEN_MINT = os.environ.get("EURC_TOKEN_MINT", "HzwqbKZw8HxMN6bF2yFZNrht3c2iXXzpKcFu7uBEDKtr")  # USDC mainnet mint
+
+    # Database configuration
+    SQLALCHEMY_DATABASE_URI = os.environ.get("DATABASE_URL")
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
+    SQLALCHEMY_ECHO = False
 
 class Development(Config):
     LOGLEVEL = os.environ.get("LOGLEVEL", "DEBUG")
     DEBUG = True
     FLASK_ENV = "development"
     FLASK_DEBUG = 1
+    SQLALCHEMY_ECHO = False  # Configure logging level via logger instead
 
 
 class Production(Config):
@@ -35,4 +50,4 @@ class Production(Config):
     FLASK_ENV = "production"
 
 
-CONFIG_MAP = {"development": Development, "production": Production}
+CONFIG_MAP = {"local": Development, "development": Development, "production": Production}

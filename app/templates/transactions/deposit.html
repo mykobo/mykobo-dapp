@@ -1,0 +1,116 @@
+{% extends "layouts/authenticated.html" %}
+{% block title %} Your Wallet {% endblock %}
+{% block content %}
+    <div id="app">
+        <div class="app-container lobby-container">
+            <!-- Wallet Info Button -->
+            <a href="{{ url_for("user.dashboard") }}" class="wallet-info-button">
+                <span class="wallet-address">Welcome back {{ user_data.first_name }} {{ user_data.last_name }}! </span>
+                <span id="wallet-balance" class="wallet-balance">{{ wallet_data.wallet_address[:9] }}...{{ wallet_data.wallet_address[-4:] }}</span>
+            </a>
+
+            <!-- Currency Balance Buttons -->
+            {% set transacting = True %}
+            {% include "partials/currency_buttons.html" %}
+
+            <div class="wallet-info-button" >
+                <h4 id="instructions">Please select the asset you want to transact in</h4>
+            </div>
+            <div id="transaction_form">
+                <form method="POST" action="{{ url_for('transaction.new', type=kind, asset=asset) }}"
+                      id="register-form">
+                    {{ form.csrf_token }}
+                    <!-- Email -->
+
+                    <div class="form-group mb-3">
+                        <div class="row">
+                            <div class="col-8 pull-left">
+                                {{ form.amount(class="form-input", id="amountInput", placeholder="10.00", required=True, autocomplete="off") }}
+                            </div>
+                            <div class="col-4">
+                                <div class="wallet-info-button w-100">{{ asset | upper }}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="wallet-info-button mb-4">
+                        <table style="width: 100%">
+                            <tr>
+                                <td style="text-align: left">Transaction Fee</td>
+                                <td style="text-align: right"><span id="fee">0.00</span></td>
+                            </tr>
+                            <tr>
+                                <td style="text-align: left"><span>Amount you will get</span></td>
+                                <td style="text-align: right"><span id="total">0.00</span></td>
+                            </tr>
+
+                            <div id="error">
+                            </div>
+                        </table>
+                    </div>
+
+
+
+                    <div class="mb-4">
+                        {{ form.profile_id(value=user_data.id) }}
+
+                        {% for profile_field in form.profile %}
+                            {{ profile_field.hidden_tag() }}
+                            <div class="form-group mb-2">
+                                <label>{{ profile_field.label }}</label>
+                                {{ profile_field(class="form-control p_input", id="profile_field_name") }}
+                                <div class="text-muted text-sm-center text-info">{{ profile_field.description }}</div>
+                            </div>
+                        {% endfor %}
+                    </div>
+
+
+                    <div class="wallet-info-button">
+                        <p>
+                            By clicking on "Continue" you accept MYKOBO <a href="https://terms.mykobo.co/virtual-currency-transactions" target="_blank">
+                            terms of use</a> with regard to virtual currency transactions.
+
+                        </p>
+                    </div>
+
+                    <button type="submit" class="mt-4 action-button primary-button" id="submit-btn">
+                        Continue
+                    </button>
+                </form>
+            </div>
+
+            <!-- Disconnect Button -->
+            <button type="button" id="disconnect-btn" class="disconnect-button-lobby" onclick="clearAuthToken('{{ url_for("auth.logout") }}')">
+                Disconnect Wallet
+            </button>
+
+        </div>
+    </div>
+{% endblock %}
+{% block additional_javascript %}
+    <script>
+        const minAmount = {{ min_amount }};
+        const maxAmount = {{ max_amount }};
+        const feeEndPoint = "{{ fee_endpoint }}";
+        const transactionKind = "{{ kind }}";
+        const clientDomain = "{{ client_domain }}";
+
+        // Hide transaction form if no asset parameter in URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const assetParam = urlParams.get('asset');
+        const instructionsElement = document.getElementById('instructions');
+
+        if (!assetParam) {
+            const transactionForm = document.getElementById('transaction_form');
+            if (transactionForm) {
+                transactionForm.style.display = 'none';
+            }
+        } else {
+            if (instructionsElement) {
+                instructionsElement.textContent = 'Enter amount required';
+            }
+        }
+    </script>
+    <script src="{{ url_for('static', filename='aux/transaction.js') }}"></script>
+    <script src="{{ url_for('static', filename='aux/common.js') }}"></script>
+{% endblock %}

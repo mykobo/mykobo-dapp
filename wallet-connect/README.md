@@ -88,10 +88,10 @@ POST /auth/auth/verify
 ### 5. Store Token
 The JWT token is stored in `localStorage` and automatically included in all authenticated API requests.
 
-### 6. Redirect to Lobby
-After successful authentication, the application makes a `fetch` request to `/user/lobby` with the JWT token sent as an `Authorization: Bearer` header:
+### 6. Redirect to Dashboard
+After successful authentication, the application makes a `fetch` request to `/user/dashboard` with the JWT token sent as an `Authorization: Bearer` header:
 ```typescript
-fetch('/user/lobby', {
+fetch('/user/dashboard', {
   method: 'GET',
   headers: {
     'Authorization': `Bearer ${token}`,
@@ -102,8 +102,8 @@ fetch('/user/lobby', {
 ```
 
 The backend response can be:
-- **HTML**: The page is replaced with the lobby HTML content
-- **JSON**: The user is navigated to `/user/lobby`
+- **HTML**: The page is replaced with the dashboard HTML content
+- **JSON**: The user is navigated to `/user/dashboard`
 
 This happens after a 1-second delay to show the success message to the user.
 

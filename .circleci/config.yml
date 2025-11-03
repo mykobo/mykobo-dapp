@@ -1,0 +1,79 @@
+version: 2.1
+
+orbs:
+  aws-ecr: circleci/aws-ecr@9.1.0
+  aws-cli: circleci/aws-cli@4.0
+  slack: circleci/slack@4.12.5
+
+jobs:
+  test:
+    machine:
+      image: ubuntu-2204:current
+    steps:
+      - checkout
+      - run:
+          name: Poetry Install
+          command: |
+            curl -sSL https://install.python-poetry.org | python3 -
+            echo 'export PATH="$HOME/.local/bin:$PATH"' >> $BASH_ENV
+            echo 'export AWS_REGION=eu-west-1' >> $BASH_ENV
+            source $BASH_ENV
+            poetry config virtualenvs.create false
+            poetry install --no-interaction --no-root
+      - run:
+          name: Run Tests
+          command: poetry run pytest
+      - slack/notify:
+          event: fail
+          template: basic_fail_1
+  build-image:
+    machine:
+      image: ubuntu-2204:current
+    steps:
+      - checkout
+      - run:
+          name: Install Semantic Release
+          command: |
+            sudo python3 -m pip install python-semantic-release
+      - run:
+          name: Generate env file
+          command: |
+            ./generate_envfile.sh
+      - aws-ecr/build_and_push_image:
+          attach_workspace: true
+          auth:
+            - aws-cli/setup:
+                aws_access_key_id: AWS_ACCESS_KEY
+                aws_secret_access_key: AWS_SECRET_KEY
+          create_repo: false
+          dockerfile: Dockerfile
+          workspace_root: .
+          extra_build_args: "--compress --provenance=false"
+          platform: linux/amd64
+          public_registry: false
+          push_image: true
+          region: ${AWS_REGION}
+          account_id: ${ACCOUNT_ID}
+          repo: dapp
+          repo_scan_on_push: true
+          skip_when_tags_exist: false
+          tag: $(./image_tag.sh)
+      - slack/notify:
+          event: pass
+          template: basic_success_1
+      - slack/notify:
+          event: fail
+          template: basic_fail_1
+
+workflows:
+  build_and_push_image:
+    when:
+      or:
+        - equal: [main, << pipeline.git.branch >>]
+    jobs:
+      - test:
+          context: core
+      - build-image:
+          requires:
+            - test
+          context: core

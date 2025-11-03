@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>Verification Successfully Completed</title>
+    <link rel="icon" href="{{ url_for('static', filename='images/favicon.ico') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/mykobo.css') }}">
+</head>
+<body>
+<div class="container-scroller">
+    <div class="container-fluid page-body-wrapper full-page-wrapper">
+        <div class="content-wrapper d-flex align-items-center text-center error-page bg-success-subtle">
+            <div class="row flex-grow">
+                <div class="col-lg-7 mx-auto text-black">
+                    <div class="row align-items-center d-flex flex-row">
+                        <div class="col-lg-6 text-lg-right pr-lg-4">
+                            <h1 class="display-1 mb-0">Done</h1>
+                        </div>
+                        <div class="col-lg-6 error-page-divider text-lg-left pl-lg-4">
+                            <h2>Verified!</h2>
+                            <h3 class="font-weight-light">
+                                You were successfully verified
+
+                                <br/> use the button below to continue to your transaction.
+                                <hr/>
+                                <a href="{{ url_for('user.dashboard') }}"
+                                   class="btn btn-dark btn-lg enter-btn disabled" id="continue-btn" tabindex="-1"
+                                   aria-disabled="true">
+                                    Continue To Dashboard (10)
+                                </a>
+                            </h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- content-wrapper ends -->
+    </div>
+    <!-- page-body-wrapper ends -->
+</div>
+</body>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        let countdown = 10;
+        const continueBtn = document.getElementById('continue-btn');
+
+        const interval = setInterval(() => {
+            countdown--;
+            continueBtn.textContent = `Continue To Dashboard (${countdown})`;
+
+            if (countdown <= 0) {
+                clearInterval(interval);
+                continueBtn.textContent = "Continue To Dashboard";
+                continueBtn.classList.remove('disabled');
+                continueBtn.removeAttribute('tabindex');
+                continueBtn.removeAttribute('aria-disabled');
+            }
+        }, 1000);
+    });
+</script>
+</html>
