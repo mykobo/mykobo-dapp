@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.5.1 (2025-11-03)
+
+### Bug Fixes
+
+- Find wallet user used to authenticate for signing
+  ([`8a51bb0`](https://github.com/mykobo/mykobo-dapp/commit/8a51bb0444ad3e973d7b1c46993cbb851c4b801e))
+
+
 ## v1.5.0 (2025-11-02)
 
 ### Chores
