@@ -34,13 +34,11 @@ class TestRequireWalletAuthDecorator:
         return test_bp
 
     def test_no_authorization_header(self, client, test_blueprint):
-        """Test that request without Authorization header is rejected"""
+        """Test that request without Authorization header redirects to home"""
         response = client.get('/protected')
 
-        assert response.status_code == 401
-        data = response.get_json()
-        assert 'error' in data
-        assert data['error'] == 'No authorization token provided'
+        assert response.status_code == 302
+        assert response.location.endswith('/')
 
     def test_valid_token_grants_access(self, client, test_blueprint, app):
         """Test that valid JWT token grants access"""
@@ -105,22 +103,20 @@ class TestRequireWalletAuthDecorator:
         )
 
         # Expired tokens should redirect to home to allow re-authentication
-        assert response.status_code == 301
+        assert response.status_code == 302
 
     def test_invalid_token_rejected(self, client, test_blueprint):
-        """Test that invalid JWT token is rejected"""
+        """Test that invalid JWT token redirects to home"""
         response = client.get(
             '/protected',
             headers={'Authorization': 'Bearer invalid_token_string'}
         )
 
-        assert response.status_code == 401
-        data = response.get_json()
-        assert 'error' in data
-        assert data['error'] == 'Invalid token'
+        assert response.status_code == 302
+        assert response.location.endswith('/')
 
     def test_token_with_wrong_secret(self, client, test_blueprint):
-        """Test that token signed with wrong secret is rejected"""
+        """Test that token signed with wrong secret redirects to home"""
         # Create token with wrong secret
         token = jwt.encode(
             {
@@ -137,12 +133,11 @@ class TestRequireWalletAuthDecorator:
             headers={'Authorization': f'Bearer {token}'}
         )
 
-        assert response.status_code == 401
-        data = response.get_json()
-        assert data['error'] == 'Invalid token'
+        assert response.status_code == 302
+        assert response.location.endswith('/')
 
     def test_token_missing_wallet_address(self, client, test_blueprint, app):
-        """Test that token without wallet_address in payload is rejected"""
+        """Test that token without wallet_address in payload redirects to home"""
         # Create token without wallet_address
         token = jwt.encode(
             {
@@ -158,10 +153,9 @@ class TestRequireWalletAuthDecorator:
             headers={'Authorization': f'Bearer {token}'}
         )
 
-        # Should be rejected with 401
-        assert response.status_code == 401
-        data = response.get_json()
-        assert data['error'] == 'Invalid token'
+        # Should redirect to home
+        assert response.status_code == 302
+        assert response.location.endswith('/')
 
     def test_wallet_address_available_in_request(self, client, test_blueprint, app):
         """Test that wallet_address is properly set in request context"""
@@ -285,7 +279,8 @@ class TestRequireWalletAuthDecorator:
 
         for headers in malformed_headers:
             response = client.get('/protected', headers=headers)
-            assert response.status_code == 401
+            assert response.status_code == 302
+            assert response.location.endswith('/')
 
     def test_token_from_cookie(self, client, test_blueprint, app):
         """Test that token can be retrieved from cookies"""
@@ -418,23 +413,22 @@ class TestRequireWalletAuthDecorator:
         response = client.get('/protected')
 
         # Expired tokens should redirect to home to allow re-authentication
-        assert response.status_code == 301
+        assert response.status_code == 302
+        assert response.location.endswith('/')
 
     def test_invalid_token_in_get_param_rejected(self, client, test_blueprint):
         """Test that invalid token in GET parameter is rejected"""
         response = client.get('/protected?token=invalid_token_string')
 
-        assert response.status_code == 401
-        data = response.get_json()
-        assert data['error'] == 'Invalid token'
+        assert response.status_code == 302
+        assert response.location.endswith('/')
 
     def test_no_token_in_any_location(self, client, test_blueprint):
         """Test that request with no token in any location is rejected"""
         response = client.get('/protected')
 
-        assert response.status_code == 401
-        data = response.get_json()
-        assert data['error'] == 'No authorization token provided'
+        assert response.status_code == 302
+        assert response.location.endswith('/')
 
 
 class TestDecoratorIntegration:

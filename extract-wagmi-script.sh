@@ -72,19 +72,6 @@ else
         HTML_DIR=$(dirname "$HTML_FILE")
         GENERATED_CSS="$HTML_DIR/css/$CSS_FILENAME"
         MAIN_CSS="app/static/css/main.css"
-
-        if [ -f "$GENERATED_CSS" ]; then
-            echo "✓ Merging CSS from $GENERATED_CSS into $MAIN_CSS..."
-
-            # Determine the correct path for merge-css.py
-            # In Docker context, it's in ./app/, otherwise it's in current directory
-            if [ -f "./app/merge-css.py" ]; then
-                python3 ./app/merge-css.py "$GENERATED_CSS" "$MAIN_CSS"
-            else
-                python3 ./merge-css.py "$GENERATED_CSS" "$MAIN_CSS"
-            fi
-        else
-            echo "Warning: Generated CSS file not found: $GENERATED_CSS"
-        fi
+        mv "${GENERATED_CSS}" "${MAIN_CSS}"
     fi
 fi

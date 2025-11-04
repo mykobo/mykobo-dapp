@@ -1,55 +1,82 @@
 {% extends "layouts/authenticated.html" %}
 {% block title %} Sign Withdrawal {% endblock title %}
 {% block content %}
+    <div id="app">
+        <div class="dashboard-container">
+            <!-- Logo -->
+            {% include "partials/header.html" %}
 
-    <!-- Wallet Info Button -->
-    <a href="{{ url_for("user.dashboard") }}" class="wallet-info-button mb-2">
-        <span class="wallet-address">Welcome back {{ user_data.first_name }} {{ user_data.last_name }}! </span>
-        <span id="wallet-balance"
-              class="wallet-balance">{{ wallet_data.wallet_address[:9] }}...{{ wallet_data.wallet_address[-4:] }}</span>
-    </a>
+            <!-- Flash messages -->
+            {% include 'partials/flash.html' %}
 
-    <!-- Currency Balance Buttons -->
-    {% include "partials/currency_buttons.html" %}
+            <!-- Back to Dashboard Link -->
+            <a href="{{ url_for("user.dashboard") }}" class="wallet-info-bar" style="text-decoration: none; cursor: pointer;">
+                <span class="wallet-address-short">← Back to Dashboard</span>
+                <span class="wallet-address-short">{{ wallet_data.wallet_address[:6] }}...{{ wallet_data.wallet_address[-4:] }}</span>
+            </a>
 
-    <div class="card card-body rounded-3 mb-4 mt-4">
-        <div class="row">
-            <span class="display-5">You are withdrawing</span><br/>
-            <span class="text-lg-start display-3 pt-1 p-3">{{ transaction_data.value | round(2) }} {{ transaction_data.outgoing_currency }}</span>
-        </div>
-        <div class="row">
-            <div class="display-5">Fee</div>
-            <div class="pt-1 p-3">{{ transaction_data.fee | round(2) }} {{ transaction_data.outgoing_currency }}</div>
-        </div>
-        <div class="row">
-            <div class="display-5">Reference</div>
-            <div class="pt-1 p-3">{{ reference }}</div>
-            <br/>
-        </div>
-    </div>
-
-    <div class="card card-body rounded-3 mb-4">
-        <div class="alert alert-info p-2" role="alert">
-            <p><strong>Sign with your Solana wallet</strong></p>
-            <p>Please approve the transaction in your wallet to complete the withdrawal. The transaction will transfer {{ transaction_data.value | round(2) }} {{ transaction_data.outgoing_currency }} from your wallet.</p>
-        </div>
-
-        <div id="transaction-status" class="mb-3">
-            <div class="spinner-border text-primary" role="status" style="display: none;" id="loading-spinner">
-                <span class="visually-hidden">Loading...</span>
+            <!-- Currency Balance Cards -->
+            <div class="balance-cards">
+                <div class="balance-card">
+                    <div class="balance-icon">
+                        <img src="{{ url_for('static', filename='images/solana.svg') }}" alt="SOL" />
+                    </div>
+                    <div class="balance-amount">{{ wallet_data.balances.sol.amount }}</div>
+                </div>
+                <div class="balance-card {% if transaction_data.outgoing_currency|lower == 'eurc' %}balance-card-selected{% endif %}">
+                    <div class="balance-icon">
+                        <img src="{{ url_for('static', filename='images/eurc_token.svg') }}" alt="EURC" />
+                    </div>
+                    <div class="balance-amount">{{ wallet_data.balances.eurc.amount }}</div>
+                </div>
+                <div class="balance-card {% if transaction_data.outgoing_currency|lower == 'usdc' %}balance-card-selected{% endif %}">
+                    <div class="balance-icon">
+                        <img src="{{ url_for('static', filename='images/usdc_token.svg') }}" alt="USDC" />
+                    </div>
+                    <div class="balance-amount">{{ wallet_data.balances.usdc.amount }}</div>
+                </div>
             </div>
-            <div id="status-message"></div>
+
+            <!-- Transaction Details -->
+            <div class="transaction-info-row">
+                <span class="info-label">You are withdrawing:</span>
+                <span class="info-value-large">{{ transaction_data.value | round(2) }} {{ transaction_data.outgoing_currency }}</span>
+            </div>
+
+            <div class="transaction-info-row">
+                <span class="info-label">Fee:</span>
+                <span class="info-value">{{ transaction_data.fee | round(2) }} {{ transaction_data.outgoing_currency }}</span>
+            </div>
+
+            <div class="transaction-info-row">
+                <span class="info-label">Reference:</span>
+                <span class="info-value">{{ reference }}</span>
+            </div>
+
+            <!-- Sign Instructions -->
+            <div class="warning-card">
+                <p><strong>Sign with your Solana wallet</strong></p>
+                <p>Please approve the transaction in your wallet to complete the withdrawal. The transaction will transfer {{ transaction_data.value | round(2) }} {{ transaction_data.outgoing_currency }} from your wallet.</p>
+            </div>
+
+            <!-- Transaction Status -->
+            <div id="transaction-status" class="transaction-status-container">
+                <div class="spinner-border text-primary" role="status" style="display: none;" id="loading-spinner">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <div id="status-message"></div>
+            </div>
+
+            <!-- Action Buttons -->
+            <button type="button" class="dashboard-action-btn full-width" id="sign-transaction-btn">
+                Sign Transaction with Wallet
+            </button>
+
+            <button type="button" class="dashboard-action-btn full-width secondary-btn" id="cancel-btn" onclick="window.location.href='{{ url_for('user.dashboard') }}'">
+                Cancel
+            </button>
         </div>
-
-        <button type="button" class="action-button primary-button mb-3" id="sign-transaction-btn">
-            Sign Transaction with Wallet
-        </button>
-
-        <button type="button" class="action-button secondary-button" id="cancel-btn" onclick="window.location.href='{{ url_for('user.dashboard') }}'">
-            Cancel
-        </button>
     </div>
-
 {% endblock %}
 
 {% block additional_javascript %}
@@ -231,7 +258,7 @@
 
             for (let attempt = 1; attempt <= 3; attempt++) {
                 try {
-                    confirmResponse = await fetch("{{ url_for('transaction.confirm_withdraw_transaction', reference=reference) }}", {
+                    confirmResponse = await fetch("{{ url_for('solana_transaction.confirm_withdraw_transaction', reference=reference) }}", {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -283,7 +310,7 @@
 
                 // Redirect to transaction info page after a delay
                 setTimeout(() => {
-                    window.location.href = "{{ url_for('transaction.info', reference=reference) }}";
+                    window.location.href = "{{ url_for('solana_transaction.info', reference=reference) }}";
                 }, 3000);
             } else {
                 // Show error but transaction was still submitted to blockchain

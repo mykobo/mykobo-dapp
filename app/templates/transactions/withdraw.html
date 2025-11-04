@@ -1,84 +1,106 @@
 {% extends "layouts/authenticated.html" %}
-{% block title %} Your Wallet {% endblock %}
+{% block title %} Withdraw {% endblock %}
 {% block content %}
     <div id="app">
-        <div class="app-container lobby-container">
-            <!-- Wallet Info Button -->
-            <a href="{{ url_for("user.dashboard") }}" class="wallet-info-button">
-                <span class="wallet-address">Welcome back {{ user_data.first_name }} {{ user_data.last_name }}! </span>
-                <span id="wallet-balance" class="wallet-balance">{{ wallet_data.wallet_address[:9] }}...{{ wallet_data.wallet_address[-4:] }}</span>
+        <div class="dashboard-container">
+            <!-- Logo -->
+            {% include "partials/header.html" %}
+
+            <!-- Flash messages -->
+            {% include 'partials/flash.html' %}
+
+            <!-- Back to Dashboard Link -->
+            <a href="{{ url_for("user.dashboard") }}" class="wallet-info-bar" style="text-decoration: none; cursor: pointer;">
+                <span class="wallet-address-short">← Back to Dashboard</span>
+                <span class="wallet-address-short">{{ wallet_data.wallet_address[:6] }}...{{ wallet_data.wallet_address[-4:] }}</span>
             </a>
 
-            <!-- Currency Balance Buttons -->
-            {% set transacting = True %}
-            {% include "partials/currency_buttons.html" %}
-
-            <div class="wallet-info-button" >
-                <h4 id="instructions">Please select the asset you want to transact in</h4>
+            <!-- Currency Balance Cards -->
+            <div class="balance-cards">
+                <div class="balance-card">
+                    <div class="balance-icon">
+                        <img src="{{ url_for('static', filename='images/solana.svg') }}" alt="SOL" />
+                    </div>
+                    <div class="balance-amount" id="sol-balance">{{ wallet_data.balances.sol.amount }}</div>
+                </div>
+                <a href="{{ url_for('solana_transaction.new', type=kind, asset='eurc') }}"
+                   class="balance-card balance-card-clickable {% if asset|lower == 'eurc' %}balance-card-selected{% endif %}"
+                   style="text-decoration: none; color: inherit;">
+                    <div class="balance-icon">
+                        <img src="{{ url_for('static', filename='images/eurc_token.svg') }}" alt="EURC" />
+                    </div>
+                    <div class="balance-amount" id="eurc-balance">{{ wallet_data.balances.eurc.amount }}</div>
+                </a>
+                <a href="{{ url_for('solana_transaction.new', type=kind, asset='usdc') }}"
+                   class="balance-card balance-card-clickable {% if asset|lower == 'usdc' %}balance-card-selected{% endif %}"
+                   style="text-decoration: none; color: inherit;">
+                    <div class="balance-icon">
+                        <img src="{{ url_for('static', filename='images/usdc_token.svg') }}" alt="USDC" />
+                    </div>
+                    <div class="balance-amount" id="usdc-balance">{{ wallet_data.balances.usdc.amount }}</div>
+                </a>
             </div>
+
+            <!-- Instructions -->
+            <div class="welcome-card">
+                <span id="instructions">Please select the asset you want to transact in</span>
+            </div>
+
             <div id="transaction_form">
-                <form method="POST" action="{{ url_for('transaction.new', type=kind, asset=asset) }}"
+                <form method="POST" action="{{ url_for('solana_transaction.new', type=kind, asset=asset) }}"
                       id="register-form">
                     {{ form.csrf_token }}
 
-                    <div class="form-group mb-3">
-                        <div class="row">
-                            <div class="col-8 pull-left">
-                                {{ form.amount(class="form-input", id="amountInput", placeholder="10.00", required=True, autocomplete="off") }}
-                            </div>
-                            <div class="col-4">
-                                <div class="wallet-info-button w-100">{{ asset | upper }}</div>
-                            </div>
+                    <!-- Amount Input -->
+                    <div class="transaction-amount-input">
+                        {{ form.amount(class="amount-input-field", id="amountInput", placeholder="0.00", required=True, autocomplete="off") }}
+                        <span class="amount-currency">{{ asset | upper }}</span>
+                    </div>
+
+                    <!-- Transaction Details Card -->
+                    <div class="transaction-details-card">
+                        <div class="transaction-detail-row">
+                            <span class="detail-label">Transaction Fee</span>
+                            <span class="detail-value" id="fee">0.00</span>
                         </div>
+                        <div class="transaction-detail-row">
+                            <span class="detail-label">Amount you will send</span>
+                            <span class="detail-value" id="total">0.00</span>
+                        </div>
+                        <div id="error" class="error-message"></div>
                     </div>
 
-                    <div class="wallet-info-button mb-4">
-                        <table style="width: 100%">
-                            <tr>
-                                <td style="text-align: left">Transaction Fee</td>
-                                <td style="text-align: right"><span id="fee">0.00</span></td>
-                            </tr>
-                            <tr>
-                                <td style="text-align: left"><span>Amount you will send</span></td>
-                                <td style="text-align: right"><span id="total">0.00</span></td>
-                            </tr>
-
-                            <div id="error">
-                            </div>
-                        </table>
-                    </div>
-
-                    <div class="mb-4">
+                    <!-- Profile Fields -->
+                    <div class="profile-fields">
                         {{ form.profile_id(value=user_data.id) }}
 
                         {% for profile_field in form.profile %}
                             {{ profile_field.hidden_tag() }}
-                            <div class="form-group mb-2">
-                                <label>{{ profile_field.label }}</label>
-                                {{ profile_field(class="form-control p_input", id="profile_field_name") }}
-                                <div class="text-muted text-sm-center text-info">{{ profile_field.description }}</div>
+                            <div class="form-group">
+                                <label for="profile_field_name" class="form-label">{{ profile_field.label }}</label>
+                                {{ profile_field(class="form-input", id="profile_field_name") }}
+                                {% if profile_field.description %}
+                                    <div class="field-description">{{ profile_field.description }}</div>
+                                {% endif %}
                             </div>
                         {% endfor %}
                     </div>
 
-                    <div class="wallet-info-button">
+                    <!-- Terms Notice -->
+                    <div class="terms-notice">
                         <p>
-                            By clicking on "Continue" you accept MYKOBO <a href="https://terms.mykobo.co/virtual-currency-transactions" target="_blank">
-                            terms of use</a> with regard to virtual currency transactions.
+                            By clicking "Continue" you accept MYKOBO
+                            <a href="https://terms.mykobo.co/virtual-currency-transactions" target="_blank">terms of use</a>
+                            with regard to virtual currency transactions.
                         </p>
                     </div>
 
-                    <button type="submit" class="mt-4 action-button primary-button" id="submit-btn">
+                    <!-- Submit Button -->
+                    <button type="submit" class="dashboard-action-btn full-width" id="submit-btn">
                         Continue
                     </button>
                 </form>
             </div>
-
-            <!-- Disconnect Button -->
-            <button type="button" id="disconnect-btn" class="disconnect-button-lobby" onclick="clearAuthToken('{{ url_for("auth.logout") }}')">
-                Disconnect Wallet
-            </button>
-
         </div>
     </div>
 {% endblock %}
@@ -104,6 +126,20 @@
             if (instructionsElement) {
                 instructionsElement.textContent = 'Enter amount to withdraw';
             }
+        }
+
+        // Disable button and change cursor on form submit
+        const form = document.getElementById('register-form');
+        const submitBtn = document.getElementById('submit-btn');
+
+        if (form && submitBtn) {
+            form.addEventListener('submit', function(e) {
+                // Disable the button
+                submitBtn.disabled = true;
+                submitBtn.style.cursor = 'not-allowed';
+                submitBtn.style.opacity = '0.6';
+                submitBtn.textContent = 'Processing...';
+            });
         }
     </script>
     <script src="{{ url_for('static', filename='aux/transaction.js') }}"></script>

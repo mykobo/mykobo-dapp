@@ -56,7 +56,7 @@ class TestWalletBalanceEndpoint:
 
             # Patch the Solana Client
             with patch('solana.rpc.api.Client', return_value=mock_client):
-                response = client.get('/balance', headers=auth_headers)
+                response = client.get('/solana/balance', headers=auth_headers)
 
                 assert response.status_code == 200
                 data = response.get_json()
@@ -86,10 +86,11 @@ class TestWalletBalanceEndpoint:
     def test_get_wallet_balance_without_auth(self, client, app):
         """Test that balance endpoint requires authentication"""
         with app.app_context():
-            response = client.get('/balance')
+            response = client.get('/solana/balance')
 
-            # Should return 401 Unauthorized
-            assert response.status_code == 401
+            # Should redirect to home when no auth token
+            assert response.status_code == 302
+            assert response.location.endswith('/')
 
     def test_get_wallet_balance_with_no_token_accounts(self, client, app, auth_headers):
         """Test wallet balance when user has no token accounts"""
@@ -105,7 +106,7 @@ class TestWalletBalanceEndpoint:
             mock_client.get_token_account_balance.side_effect = Exception("Account not found")
 
             with patch('solana.rpc.api.Client', return_value=mock_client):
-                response = client.get('/balance', headers=auth_headers)
+                response = client.get('/solana/balance', headers=auth_headers)
 
                 assert response.status_code == 200
                 data = response.get_json()
@@ -135,7 +136,7 @@ class TestWalletBalanceEndpoint:
             mock_client.get_token_account_balance.side_effect = [mock_token_response, mock_token_response]
 
             with patch('solana.rpc.api.Client', return_value=mock_client):
-                response = client.get('/balance', headers=auth_headers)
+                response = client.get('/solana/balance', headers=auth_headers)
 
                 assert response.status_code == 200
                 data = response.get_json()
@@ -149,7 +150,7 @@ class TestWalletBalanceEndpoint:
         with app.app_context():
             # Mock Client to raise an exception
             with patch('solana.rpc.api.Client', side_effect=Exception("RPC connection failed")):
-                response = client.get('/balance', headers=auth_headers)
+                response = client.get('/solana/balance', headers=auth_headers)
 
                 assert response.status_code == 500
                 data = response.get_json()
@@ -173,7 +174,7 @@ class TestWalletBalanceEndpoint:
 
             # Mock Client but Pubkey.from_string will fail
             with patch('solana.rpc.api.Client'):
-                response = client.get('/balance', headers=headers)
+                response = client.get('/solana/balance', headers=headers)
 
                 # Should return 500 due to invalid address
                 assert response.status_code == 500
@@ -195,7 +196,7 @@ class TestWalletBalanceEndpoint:
             mock_client.get_token_account_balance.side_effect = Exception("Not found")
 
             with patch('solana.rpc.api.Client', return_value=mock_client) as mock_client_class:
-                response = client.get('/balance', headers=auth_headers)
+                response = client.get('/solana/balance', headers=auth_headers)
 
                 # Verify Client was initialized with correct RPC URL
                 mock_client_class.assert_called_once_with("https://api.testnet.solana.com")
@@ -229,7 +230,7 @@ class TestWalletBalanceEndpoint:
             mock_client.get_token_account_balance.side_effect = [mock_usdc_response, mock_eurc_response]
 
             with patch('solana.rpc.api.Client', return_value=mock_client):
-                response = client.get('/balance', headers=auth_headers)
+                response = client.get('/solana/balance', headers=auth_headers)
 
                 assert response.status_code == 200
                 data = response.get_json()

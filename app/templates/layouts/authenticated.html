@@ -10,10 +10,19 @@
 </head>
 <body>
 <div id="app">
-    {% include 'partials/header.html' %}
-    {% include 'partials/flash.html' %}
     {% block content %}{% endblock %}
 </div>
+
+<script>
+    // Check if auth token exists, redirect to / if not
+    (function() {
+        const authToken = localStorage.getItem('mykobo_auth_token');
+        if (!authToken) {
+            window.location.href = '/';
+        }
+    })();
+</script>
+
 {% block additional_javascript %}
 {% endblock %}
 </body>

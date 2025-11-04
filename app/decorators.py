@@ -43,7 +43,8 @@ def require_wallet_auth(f):
                 f"Authentication failed: No token provided - "
                 f"Path: {request.path}, Method: {request.method}, IP: {request.remote_addr}"
             )
-            return jsonify({'error': 'No authorization token provided'}), 401
+            # Redirect to home page to connect wallet
+            return redirect(url_for('common.home')), 302
 
         try:
             # Verify JWT token
@@ -60,7 +61,8 @@ def require_wallet_auth(f):
                     f"Authentication failed: Token missing wallet_address - "
                     f"Source: {token_source}, Path: {request.path}, IP: {request.remote_addr}"
                 )
-                return jsonify({'error': 'Invalid token'}), 401
+                # Redirect to home page to reconnect wallet
+                return redirect(url_for('common.home')), 302
 
             # Add wallet address to request context
             request.wallet_address = payload['wallet_address']
@@ -77,13 +79,15 @@ def require_wallet_auth(f):
                 f"Authentication failed: Token expired - "
                 f"Source: {token_source}, Path: {request.path}, IP: {request.remote_addr}"
             )
-            return redirect(url_for("common.home")), 301
+            # Redirect to home page to reconnect wallet
+            return redirect(url_for('common.home')), 302
         except jwt.InvalidTokenError:
             logger.warning(
                 f"Authentication failed: Invalid token - "
                 f"Source: {token_source}, Path: {request.path}, IP: {request.remote_addr}"
             )
-            return jsonify({'error': 'Invalid token'}), 401
+            # Redirect to home page to reconnect wallet
+            return redirect(url_for('common.home')), 302
 
         return f(*args, **kwargs)
 

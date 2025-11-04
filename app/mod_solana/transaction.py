@@ -15,7 +15,7 @@ from app.util import generate_reference, retrieve_ip_address, get_fee, get_minim
 from app.database import db
 from app.models import Transaction as TransactionModel, Transaction
 
-bp = Blueprint("transaction", __name__)
+bp = Blueprint("solana_transaction", __name__)
 network = 'solana'
 
 
@@ -88,7 +88,7 @@ def new() -> Response:
                 if not wallet_data or "balances" not in wallet_data:
                     app.logger.error(f"Could not fetch wallet balance for validation")
                     flash("Unable to verify wallet balance. Please try again.", "danger")
-                    return make_response(redirect(url_for("transaction.new", type=kind, asset=asset)), 302)
+                    return make_response(redirect(url_for("solana_transaction.new", type=kind, asset=asset)), 302)
 
                 # Get the balance for the asset being withdrawn
                 asset_balance = wallet_data["balances"].get(asset.lower(), {})
@@ -110,7 +110,7 @@ def new() -> Response:
                         f"Insufficient balance. You have {current_balance:.2f} {asset.upper()} but need {required_balance:.2f} {asset.upper()} for this withdrawal.",
                         "danger"
                     )
-                    return make_response(redirect(url_for("transaction.new", type=kind, asset=asset)), 302)
+                    return make_response(redirect(url_for("solana_transaction.new", type=kind, asset=asset)), 302)
 
             ledger_payload = {
                 "meta_data": {
@@ -206,7 +206,7 @@ def new() -> Response:
 
                 # Redirect to info page for all transaction types
                 # For withdrawals in PENDING_PAYEE status, the info endpoint will render the sign page
-                return make_response(redirect(url_for("transaction.info", reference=tx_reference)))
+                return make_response(redirect(url_for("solana_transaction.info", reference=tx_reference)))
             except botocore.exceptions.EndpointConnectionError as e:
                 app.logger.exception(
                     f"We could not submit this transaction to our ledger: {e}"
@@ -237,7 +237,7 @@ def new() -> Response:
                 )
 
         else:
-            return make_response(redirect(url_for("transaction.new", type=kind)))
+            return make_response(redirect(url_for("solana_transaction.new", type=kind)))
     else:
         return make_response(
             render_template(

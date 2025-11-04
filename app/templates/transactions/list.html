@@ -1,68 +1,99 @@
 {% extends "layouts/authenticated.html" %}
 {% block title %} Your Transactions {% endblock %}
 {% block content %}
-    <div class="app-container lobby-container">
-        <!-- Wallet Info Button -->
-        <button class="wallet-info-button" onclick="window.location.href='{{ url_for('user.dashboard') }}'">
-            <span class="wallet-address">Welcome back {% if user_data %}{{ user_data.first_name }} {{ user_data.last_name }}{% else %}User{% endif %}!</span>
-            <span id="wallet-balance"
-                  class="wallet-balance">{% if wallet_data and wallet_data.wallet_address %}{{ wallet_data.wallet_address[:6] }}...{{ wallet_data.wallet_address[-4:] }}{% endif %}</span>
-        </button>
+    <div id="app">
+        <div class="dashboard-container">
+            <!-- Logo -->
+            {% include "partials/header.html" %}
 
-        <!-- Transactions List -->
-        <div class="transactions-container">
-            {% if transaction_data.transactions|length > 0 %}
-                {% for transaction in transaction_data.transactions %}
-                    <button class="transaction-card" onclick="window.location.href='{{ url_for('transaction.info', reference=transaction.reference) }}'">
-                        <div class="transaction-main">
-                            <span class="transaction-type">{{ transaction.transaction_type }}</span>
-                            <span class="transaction-amount">{{ transaction.outgoing_currency }} {{ transaction.value | float | round(2) }}</span>
-                        </div>
-                        <div class="transaction-details">
-                            <span class="transaction-reference">{{ transaction.reference }}</span>
-                            <span class="transaction-status status-{{ transaction.status|lower|replace('_', '-') }}">{{ transaction.status | transaction_status }}</span>
-                        </div>
-                    </button>
-                {% endfor %}
+            <!-- Flash messages -->
+            {% include 'partials/flash.html' %}
 
-                <!-- Pagination -->
-                {% if transaction_data.total > transaction_data.limit %}
-                    <div class="pagination-container">
-                        <div class="pagination-info">
-                            <span>Showing {{ transaction_data.offset + 1 }}-{{ transaction_data.offset + transaction_data.transactions|length }} of {{ transaction_data.total }} transactions</span>
-                        </div>
-                        <div class="pagination-buttons">
-                            {% if transaction_data.offset > 0 %}
-                                <button class="pagination-button" onclick="window.location.href='{{ url_for('transaction.list_transactions', limit=transaction_data.limit, offset=0) }}'">
-                                    First
-                                </button>
-                                <button class="pagination-button" onclick="window.location.href='{{ url_for('transaction.list_transactions', limit=transaction_data.limit, offset=transaction_data.offset - transaction_data.limit) }}'">
-                                    Previous
-                                </button>
-                            {% else %}
-                                <button class="pagination-button" disabled>First</button>
-                                <button class="pagination-button" disabled>Previous</button>
-                            {% endif %}
+            <!-- Back to Dashboard Link -->
+            <a href="{{ url_for("user.dashboard") }}" class="wallet-info-bar" style="text-decoration: none; cursor: pointer;">
+                <span class="wallet-address-short">← Back to Dashboard</span>
+                <span class="wallet-address-short">{% if wallet_data and wallet_data.wallet_address %}{{ wallet_data.wallet_address[:6] }}...{{ wallet_data.wallet_address[-4:] }}{% endif %}</span>
+            </a>
 
-                            {% if transaction_data.offset + transaction_data.limit < transaction_data.total %}
-                                <button class="pagination-button" onclick="window.location.href='{{ url_for('transaction.list_transactions', limit=transaction_data.limit, offset=transaction_data.offset + transaction_data.limit) }}'">
-                                    Next
-                                </button>
-                                <button class="pagination-button" onclick="window.location.href='{{ url_for('transaction.list_transactions', limit=transaction_data.limit, offset=(transaction_data.total // transaction_data.limit) * transaction_data.limit) }}'">
-                                    Last
-                                </button>
-                            {% else %}
-                                <button class="pagination-button" disabled>Next</button>
-                                <button class="pagination-button" disabled>Last</button>
-                            {% endif %}
+            <!-- Currency Balance Cards -->
+            <div class="balance-cards">
+                <div class="balance-card">
+                    <div class="balance-icon">
+                        <img src="{{ url_for('static', filename='images/solana.svg') }}" alt="SOL" />
+                    </div>
+                    <div class="balance-amount">{{ wallet_data.balances.sol.amount }}</div>
+                </div>
+                <div class="balance-card">
+                    <div class="balance-icon">
+                        <img src="{{ url_for('static', filename='images/eurc_token.svg') }}" alt="EURC" />
+                    </div>
+                    <div class="balance-amount">{{ wallet_data.balances.eurc.amount }}</div>
+                </div>
+                <div class="balance-card">
+                    <div class="balance-icon">
+                        <img src="{{ url_for('static', filename='images/usdc_token.svg') }}" alt="USDC" />
+                    </div>
+                    <div class="balance-amount">{{ wallet_data.balances.usdc.amount }}</div>
+                </div>
+            </div>
+
+            <!-- Transactions List -->
+            <div class="transactions-list">
+                {% if transaction_data.transactions|length > 0 %}
+                    {% for transaction in transaction_data.transactions %}
+                        <div class="transaction-list-card" onclick="window.location.href='{{ url_for('solana_transaction.info', reference=transaction.reference) }}'">
+                            <div class="transaction-list-info">
+                                <span class="transaction-list-time">{{ transaction.created_at | humanize_time }}</span>
+                                <span class="transaction-list-type">{{ transaction.transaction_type }}</span>
+                                <span class="transaction-list-amount">{{ transaction.value | float | round(2) }} {{ transaction.outgoing_currency }}</span>
+                            </div>
+                            <div class="transaction-list-status">
+                                <span class="status-badge status-{{ transaction.status|lower|replace('_', '-') }}">
+                                    {{ transaction.status | transaction_status }}
+                                </span>
+                            </div>
                         </div>
+                    {% endfor %}
+
+                    <!-- Pagination -->
+                    {% if transaction_data.total > transaction_data.limit %}
+                        <div class="pagination-container">
+                            <div class="pagination-info">
+                                <span>Showing {{ transaction_data.offset + 1 }}-{{ transaction_data.offset + transaction_data.transactions|length }} of {{ transaction_data.total }} transactions</span>
+                            </div>
+                            <div class="pagination-buttons">
+                                {% if transaction_data.offset > 0 %}
+                                    <button class="pagination-button" onclick="window.location.href='{{ url_for('solana_transaction.list_transactions', limit=transaction_data.limit, offset=0) }}'">
+                                        First
+                                    </button>
+                                    <button class="pagination-button" onclick="window.location.href='{{ url_for('solana_transaction.list_transactions', limit=transaction_data.limit, offset=transaction_data.offset - transaction_data.limit) }}'">
+                                        Previous
+                                    </button>
+                                {% else %}
+                                    <button class="pagination-button" disabled>First</button>
+                                    <button class="pagination-button" disabled>Previous</button>
+                                {% endif %}
+
+                                {% if transaction_data.offset + transaction_data.limit < transaction_data.total %}
+                                    <button class="pagination-button" onclick="window.location.href='{{ url_for('solana_transaction.list_transactions', limit=transaction_data.limit, offset=transaction_data.offset + transaction_data.limit) }}'">
+                                        Next
+                                    </button>
+                                    <button class="pagination-button" onclick="window.location.href='{{ url_for('solana_transaction.list_transactions', limit=transaction_data.limit, offset=(transaction_data.total // transaction_data.limit) * transaction_data.limit) }}'">
+                                        Last
+                                    </button>
+                                {% else %}
+                                    <button class="pagination-button" disabled>Next</button>
+                                    <button class="pagination-button" disabled>Last</button>
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% endif %}
+                {% else %}
+                    <div class="empty-state">
+                        <p>No transactions found</p>
                     </div>
                 {% endif %}
-            {% else %}
-                <div class="empty-state">
-                    <p>No transactions found</p>
-                </div>
-            {% endif %}
+            </div>
         </div>
     </div>
 {% endblock %}

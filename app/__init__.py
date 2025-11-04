@@ -7,6 +7,7 @@ import jinja_partials
 import pycountry
 from dotenv import load_dotenv, find_dotenv
 from flask import Flask
+from flask_humanize import Humanize
 from mykobo_py.business.compliance import countries
 from mykobo_py.idenfy.idenfy import IdenfyServiceClient
 
@@ -14,6 +15,7 @@ from app.config import CONFIG_MAP
 from app.mod_solana import bp as transaction_bp
 from app.mod_common import common_bp, auth_bp
 from app.mod_user import user_bp
+from app.mod_api import api_bp
 from app.mod_common.auth import limiter
 from mykobo_py.identity.identity import IdentityServiceClient
 from mykobo_py.wallets.wallets import WalletServiceClient
@@ -46,8 +48,9 @@ def create_app(env):
 
     app.register_blueprint(common_bp)
     app.register_blueprint(auth_bp)
-    app.register_blueprint(transaction_bp)
+    app.register_blueprint(transaction_bp, url_prefix="/solana")
     app.register_blueprint(user_bp)
+    app.register_blueprint(api_bp, url_prefix="/api")
 
     from app import filters as template_filters
 
@@ -58,10 +61,12 @@ def create_app(env):
         "to_human_date": template_filters.format_datetime_human,
         "truncated_account": template_filters.truncated_account,
         "asset": template_filters.asset,
+        "humanize_time": template_filters.humanize_time,
     }
 
     jinja2.filters.FILTERS.update(jinja_filters)
     jinja_partials.register_extensions(app)
+    humanize = Humanize(app)
 
     return app
 

@@ -1,4 +1,5 @@
 from datetime import datetime
+from flask_humanize import Humanize
 
 
 def currency(value, asset):
@@ -52,3 +53,45 @@ def asset(value):
     if value.startswith("stellar:"):
         return value.split(":")[1]
     return value
+
+
+def humanize_time(value):
+    """
+    Convert a datetime string or datetime object to human-readable relative time
+    e.g., "2 hours ago", "5 minutes ago", "just now"
+    """
+    if not value:
+        return ""
+
+    # Convert string to datetime if needed
+    if isinstance(value, str):
+        try:
+            dt = datetime.fromisoformat(value.replace('Z', '+00:00'))
+        except:
+            return value
+    else:
+        dt = value
+
+    # Calculate time difference
+    now = datetime.now(dt.tzinfo) if dt.tzinfo else datetime.now()
+    diff = now - dt
+
+    seconds = diff.total_seconds()
+
+    if seconds < 60:
+        return "just now"
+    elif seconds < 3600:
+        minutes = int(seconds / 60)
+        return f"{minutes}m ago" if minutes > 1 else "1m ago"
+    elif seconds < 86400:
+        hours = int(seconds / 3600)
+        return f"{hours}h ago" if hours > 1 else "1h ago"
+    elif seconds < 604800:
+        days = int(seconds / 86400)
+        return f"{days}d ago" if days > 1 else "1d ago"
+    elif seconds < 2592000:
+        weeks = int(seconds / 604800)
+        return f"{weeks}w ago" if weeks > 1 else "1w ago"
+    else:
+        months = int(seconds / 2592000)
+        return f"{months}mo ago" if months > 1 else "1mo ago"

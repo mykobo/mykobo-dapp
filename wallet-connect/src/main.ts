@@ -26,53 +26,55 @@ const ENABLE_ETHEREUM = import.meta.env.VITE_ENABLE_ETHEREUM === 'true'
 const ENABLE_SOLANA = import.meta.env.VITE_ENABLE_SOLANA === 'true'
 
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
-  <div class="app-container">
-    <div class="header">
-      <img src="/static/images/mykobo_logo_white.svg" alt="MYKOBO" style="width: 150px; display: block; margin: 0 auto;" />
-      <p class="subtitle">Stable coin infrastructure providers</p>
-    </div>
-
-    <div id="account" class="status-card">
-      <h2>Account Status</h2>
-      <div class="status-content">
-        <span class="status-label">Status:</span> <span class="status-value">disconnected</span>
-        <br />
-        <span class="status-label">Address:</span> <span class="status-value">-</span>
-        <br />
-        <span class="status-label">Chain:</span> <span class="status-value">-</span>
+  <div class="wallet-connect-container">
+    <div class="wallet-connect-card">
+      <div class="header">
+        <img src="/static/images/mykobo_logo_white.svg" alt="MYKOBO" class="logo" />
+        <p class="subtitle">Stablecoin Infrastructure</p>
       </div>
-    </div>
 
-    <div id="auth" class="status-card">
-      <h2>Authentication</h2>
-      <div id="auth-status" class="auth-status">Not authenticated</div>
-      <div id="auth-error" class="auth-error"></div>
-    </div>
-
-    ${ENABLE_ETHEREUM ? `
-    <div id="connect" class="wallet-section">
-      <h2>Connect Ethereum Wallet</h2>
-      <div class="wallet-buttons">
-        ${config?.connectors
-          .map(
-            (connector: any) =>
-              `<button class="wallet-button connect" id="${connector.uid}" type="button">
-                <span class="wallet-name">${connector.name}</span>
-              </button>`,
-          )
-          .join('') ?? ''}
+      <div id="account" class="status-card" style="display: none;">
+        <h2>Account Status</h2>
+        <div class="status-content">
+          <span class="status-label">Status:</span> <span class="status-value">disconnected</span>
+          <br />
+          <span class="status-label">Address:</span> <span class="status-value">-</span>
+          <br />
+          <span class="status-label">Chain:</span> <span class="status-value">-</span>
+        </div>
       </div>
-    </div>
-    ` : ''}
 
-    ${ENABLE_SOLANA ? `
-    <div id="solana-connect" class="wallet-section">
-      <h2>Connect Solana Wallet</h2>
-      <div id="solana-wallet-buttons" class="wallet-buttons">
-        <!-- Wallet buttons will be inserted here after detection -->
+      <div id="auth" class="status-card" style="display: none;">
+        <h2>Authentication</h2>
+        <div id="auth-status" class="auth-status">Not authenticated</div>
+        <div id="auth-error" class="auth-error"></div>
       </div>
+
+      ${ENABLE_ETHEREUM ? `
+      <div id="connect" class="wallet-section">
+        <h2>Connect Ethereum Wallet</h2>
+        <div class="wallet-buttons">
+          ${config?.connectors
+            .map(
+              (connector: any) =>
+                `<button class="wallet-button connect" id="${connector.uid}" type="button">
+                  <span class="wallet-name">${connector.name}</span>
+                </button>`,
+            )
+            .join('') ?? ''}
+        </div>
+      </div>
+      ` : ''}
+
+      ${ENABLE_SOLANA ? `
+      <div id="solana-connect" class="wallet-section">
+        <h2>Connect Solana Wallet</h2>
+        <div id="solana-wallet-buttons" class="wallet-buttons">
+          <!-- Wallet buttons will be inserted here after detection -->
+        </div>
+      </div>
+      ` : ''}
     </div>
-    ` : ''}
   </div>
 `
 
@@ -206,7 +208,6 @@ function setupSolanaWalletListeners(element: HTMLDivElement): void {
           onConnect: (publicKey: import('@solana/web3.js').PublicKey) => {
             const walletAddress = publicKey.toBase58()
             updateSolanaAccount(element, walletAddress)
-            handleAuthenticationSolana(element, walletAddress)
           },
           onDisconnect: () => {
             updateSolanaAccount(element, null)
@@ -240,21 +241,18 @@ async function handleAuthentication(
   element: HTMLDivElement,
   walletAddress: `0x${string}`
 ) {
-  const authStatusElement = element.querySelector<HTMLDivElement>('#auth-status')!
-  const authErrorElement = element.querySelector<HTMLDivElement>('#auth-error')!
+  const connectElement = element.querySelector<HTMLDivElement>('#connect')!
+  const connectHeader = connectElement.querySelector<HTMLHeadingElement>('h2')!
 
   try {
-    // Clear any previous errors
-    authErrorElement.innerText = ''
-
     // Show authenticating status
-    authStatusElement.innerText = 'Authenticating...'
+    connectHeader.innerText = 'Authenticating...'
 
     // Perform authentication
     const token = await authenticateWallet(walletAddress)
 
     // Show success message
-    authStatusElement.innerText = '✓ Authentication successful! Redirecting to lobby...'
+    connectHeader.innerText = 'Authentication successful, one moment please...'
 
     // Wait 2 seconds before redirecting
     await new Promise(resolve => setTimeout(resolve, 2000))
@@ -265,12 +263,15 @@ async function handleAuthentication(
     console.error('Authentication error:', error)
 
     if (error instanceof AuthError) {
-      authErrorElement.innerText = `Authentication failed: ${error.message}`
+      connectHeader.innerText = `Authentication failed: ${error.message}`
     } else {
-      authErrorElement.innerText = `Authentication failed: ${(error as Error).message}`
+      connectHeader.innerText = `Authentication failed: ${(error as Error).message}`
     }
 
-    updateAuthStatus(element, false, 'Failed')
+    // Reset to original text after 3 seconds
+    setTimeout(() => {
+      connectHeader.innerText = 'Connect Ethereum Wallet'
+    }, 3000)
   }
 }
 
@@ -314,19 +315,17 @@ async function handleAuthenticationSolana(
   element: HTMLDivElement,
   walletAddress: string
 ) {
-  const authStatusElement = element.querySelector<HTMLDivElement>('#auth-status')!
-  const authErrorElement = element.querySelector<HTMLDivElement>('#auth-error')!
+  const solanaConnectElement = element.querySelector<HTMLDivElement>('#solana-connect')!
+  const solanaHeader = solanaConnectElement.querySelector<HTMLHeadingElement>('h2')!
 
   try {
-    authErrorElement.innerText = ''
-
-    authStatusElement.innerText = 'Authenticating Solana wallet...'
+    solanaHeader.innerText = 'Authenticating Solana wallet...'
 
     // Perform Solana authentication
     const token = await authenticateWalletUniversal(walletAddress, 'solana')
 
     // Show success message
-    authStatusElement.innerText = '✓ Authentication successful! Redirecting to lobby...'
+    solanaHeader.innerText = 'Authentication successful, one moment please...'
 
     // Wait 2 seconds before redirecting
     await new Promise(resolve => setTimeout(resolve, 2000))
@@ -337,12 +336,15 @@ async function handleAuthenticationSolana(
     console.error('Solana authentication error:', error)
 
     if (error instanceof AuthError) {
-      authErrorElement.innerText = `Authentication failed: ${error.message}`
+      solanaHeader.innerText = `Authentication failed: ${error.message}`
     } else {
-      authErrorElement.innerText = `Authentication failed: ${(error as Error).message}`
+      solanaHeader.innerText = `Authentication failed: ${(error as Error).message}`
     }
 
-    updateAuthStatus(element, false, 'Failed')
+    // Reset to original text after 3 seconds
+    setTimeout(() => {
+      solanaHeader.innerText = 'Connect Solana Wallet'
+    }, 3000)
   }
 }
 
