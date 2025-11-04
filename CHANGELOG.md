@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.5.4 (2025-11-04)
+
+### Bug Fixes
+
+- Lobby screen
+  ([`1a5cb64`](https://github.com/mykobo/mykobo-dapp/commit/1a5cb64c5057c4164981a0eca7ab6fb396e70ba0))
+
+
 ## v1.5.3 (2025-11-04)
 
 ### Bug Fixes
