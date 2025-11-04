@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.5.5 (2025-11-04)
+
+### Bug Fixes
+
+- Wider stylesheets
+  ([`653f401`](https://github.com/mykobo/mykobo-dapp/commit/653f401aed35eb0f3d7e828aabf81c7823f67fd0))
+
+
 ## v1.5.4 (2025-11-04)
 
 ### Bug Fixes
