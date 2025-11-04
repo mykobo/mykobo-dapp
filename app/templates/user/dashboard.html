@@ -1,78 +1,80 @@
 {% extends "layouts/authenticated.html" %}
 {% block title %} Your Wallet {% endblock %}
 {% block content %}
-    <div id="app">
-        <div class="dashboard-container">
-            <!-- Logo -->
-            {% include "partials/header.html" %}
-            <!-- Flash messages -->
-            {% include 'partials/flash.html' %}
+    <div class="dashboard-container">
+        <!-- Logo -->
+        {% include "partials/header.html" %}
+        <!-- Flash messages -->
+        {% include 'partials/flash.html' %}
 
-            <!-- Wallet Info Bar -->
-            <div class="wallet-info-bar">
-                <span class="wallet-address-short">{{ wallet_data.wallet_address[:6] }}...{{ wallet_data.wallet_address[-4:] }}</span>
-                <button type="button" class="disconnect-link" onclick="clearAuthToken('{{ url_for("auth.logout") }}')">
-                    Disconnect Wallet
-                </button>
-            </div>
-
-            <!-- Currency Balance Cards -->
-            <div class="balance-cards">
-                <div class="balance-card">
-                    <div class="balance-icon">
-                        <img src="{{ url_for('static', filename='images/solana.svg') }}" alt="SOL" />
-                    </div>
-                    <div class="balance-amount" id="sol-balance">{{ wallet_data.balances.sol.amount }}</div>
-                </div>
-                <div class="balance-card">
-                    <div class="balance-icon">
-                        <img src="{{ url_for('static', filename='images/eurc_token.svg') }}" alt="EURC" />
-                    </div>
-                    <div class="balance-amount" id="eurc-balance">{{ wallet_data.balances.eurc.amount }}</div>
-                </div>
-                <div class="balance-card">
-                    <div class="balance-icon">
-                        <img src="{{ url_for('static', filename='images/usdc_token.svg') }}" alt="USDC" />
-                    </div>
-                    <div class="balance-amount" id="usdc-balance">{{ wallet_data.balances.usdc.amount }}</div>
-                </div>
-            </div>
-
-            <!-- Welcome Message -->
-            <div class="welcome-card">
-                <span>Welcome back {{ user_data.first_name }} {{ user_data.last_name }}!</span>
-            </div>
-
-            <!-- Get Verified Button -->
-            {% if not approved %}
-                <button class="dashboard-action-btn primary-btn" onclick="window.location.href='{{ url_for('user.kyc', profile_id=user_data.id) }}'">
-                    Get Verified
-                </button>
-            {% endif %}
-
-            {% if approved %}
-                <!-- Action Buttons Grid -->
-                <div class="dashboard-actions-grid">
-                    <button class="dashboard-action-btn" onclick="window.location.href='{{ url_for('solana_transaction.new', type='deposit') }}'">
-                        Deposit
-                    </button>
-                    <button class="dashboard-action-btn" onclick="window.location.href='{{ url_for('solana_transaction.new', type='withdraw') }}'">
-                        Withdraw
-                    </button>
-                    <button class="dashboard-action-btn" onclick="alert('Swap functionality coming soon')">
-                        Swap
-                    </button>
-                    <button class="dashboard-action-btn" onclick="alert('Liquidity functionality coming soon')">
-                        Liquidity
-                    </button>
-                </div>
-
-                <!-- Transaction History Button -->
-                <button class="dashboard-action-btn full-width" onclick="window.location.href='{{ url_for('solana_transaction.list_transactions', type='withdraw') }}'">
-                    Transactions
-                </button>
-            {% endif %}
+        <!-- Wallet Info Bar -->
+        <div class="wallet-info-bar">
+            <span class="wallet-address-short">{{ wallet_data.wallet_address[:6] }}...{{ wallet_data.wallet_address[-4:] }}</span>
+            <button type="button" class="disconnect-link" onclick="clearAuthToken('{{ url_for("auth.logout") }}')">
+                Disconnect Wallet
+            </button>
         </div>
+
+        <!-- Currency Balance Cards -->
+        <div class="balance-cards">
+            <div class="balance-card">
+                <div class="balance-icon">
+                    <img src="{{ url_for('static', filename='images/solana.svg') }}" alt="SOL"/>
+                </div>
+                <div class="balance-amount" id="sol-balance">{{ wallet_data.balances.sol.amount }}</div>
+            </div>
+            <div class="balance-card">
+                <div class="balance-icon">
+                    <img src="{{ url_for('static', filename='images/eurc_token.svg') }}" alt="EURC"/>
+                </div>
+                <div class="balance-amount" id="eurc-balance">{{ wallet_data.balances.eurc.amount }}</div>
+            </div>
+            <div class="balance-card">
+                <div class="balance-icon">
+                    <img src="{{ url_for('static', filename='images/usdc_token.svg') }}" alt="USDC"/>
+                </div>
+                <div class="balance-amount" id="usdc-balance">{{ wallet_data.balances.usdc.amount }}</div>
+            </div>
+        </div>
+
+        <!-- Welcome Message -->
+        <div class="welcome-card">
+            <span>Welcome back {{ user_data.first_name }} {{ user_data.last_name }}!</span>
+        </div>
+
+        <!-- Get Verified Button -->
+        {% if not approved %}
+            <button class="dashboard-action-btn primary-btn"
+                    onclick="window.location.href='{{ url_for('user.kyc', profile_id=user_data.id) }}'">
+                Get Verified
+            </button>
+        {% endif %}
+
+        {% if approved %}
+            <!-- Action Buttons Grid -->
+            <div class="dashboard-actions-grid">
+                <button class="dashboard-action-btn"
+                        onclick="window.location.href='{{ url_for('solana_transaction.new', type='deposit') }}'">
+                    Deposit
+                </button>
+                <button class="dashboard-action-btn"
+                        onclick="window.location.href='{{ url_for('solana_transaction.new', type='withdraw') }}'">
+                    Withdraw
+                </button>
+                <button class="dashboard-action-btn" onclick="alert('Swap functionality coming soon')">
+                    Swap
+                </button>
+                <button class="dashboard-action-btn" onclick="alert('Liquidity functionality coming soon')">
+                    Liquidity
+                </button>
+            </div>
+
+            <!-- Transaction History Button -->
+            <button class="dashboard-action-btn full-width"
+                    onclick="window.location.href='{{ url_for('solana_transaction.list_transactions', type='withdraw') }}'">
+                Transactions
+            </button>
+        {% endif %}
     </div>
 {% endblock %}
 

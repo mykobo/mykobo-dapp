@@ -971,13 +971,17 @@ body {
   border: none;
 }
 
-@media (max-width: 480px) {
+@media (max-width: 768px) {
+  body {
+    padding: 8px;
+  }
+
   .wallet-connect-container {
     max-width: 100%;
   }
 
   .wallet-connect-card {
-    padding: 30px 20px;
+    padding: 24px 16px;
     border-radius: 16px;
   }
 
@@ -991,7 +995,9 @@ body {
   }
 
   .dashboard-container {
-    padding: 0 10px;
+    padding: 0 8px;
+    max-width: 100%;
+    gap: 12px;
   }
 
   .balance-cards {
@@ -1014,6 +1020,61 @@ body {
   .dashboard-action-btn {
     padding: 14px 20px;
     font-size: 0.95rem;
+  }
+
+  .transaction-info-row {
+    padding: 12px 14px;
+  }
+
+  .info-value {
+    margin-right: 30px;
+  }
+
+  .copy-btn {
+    right: 14px;
+  }
+
+  .transaction-list-card {
+    padding: 12px 14px;
+  }
+
+  .transaction-list-info {
+    gap: 10px;
+  }
+
+  .status-badge {
+    padding: 6px 12px;
+    min-width: 70px;
+    font-size: 0.75rem;
+  }
+
+  .wallet-info-bar {
+    padding: 12px 16px;
+  }
+
+  .welcome-card {
+    padding: 14px 16px;
+  }
+
+  .warning-card,
+  .success-card {
+    padding: 12px 16px;
+  }
+
+  .transaction-amount-input {
+    padding: 14px 16px;
+  }
+
+  .transaction-details-card {
+    padding: 12px 16px;
+  }
+
+  .transaction-summary-card {
+    padding: 12px 16px;
+  }
+
+  .terms-notice {
+    padding: 12px 16px;
   }
 }
 

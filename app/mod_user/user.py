@@ -212,6 +212,12 @@ def lobby():
 @require_wallet_auth
 def register():
     wallet_address = request.wallet_address
+    wallet_data = {}
+    try:
+        wallet_data = get_wallet_balance(wallet_address).json
+        print(wallet_data)
+    except Exception as wallet_error:
+        app.logger.exception(f"Could not fetch wallet balance: {wallet_error}")
 
     if request.method == "POST":
         form = User(request.form)
@@ -343,7 +349,7 @@ def register():
         form.email_address.data = email_address
     return render_template(
         'user/register.html',
-        wallet_address=wallet_address,
+        wallet_data=wallet_data,
         form=form,
     )
 

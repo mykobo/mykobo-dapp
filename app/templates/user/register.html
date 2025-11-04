@@ -2,88 +2,114 @@
 {% block title %}Create Profile{% endblock %}
 
 {% block content %}
-    <div id="app">
-        <div class="register-container">
-            <!-- Wallet Info Card -->
-            <div class="wallet-info-card">
-                <div class="wallet-info-row">
-                    Welcome, in order to proceed please provide us with some basic details about yourself, please use
-                    the same name that appears on your bank account. This name also has to match the name on you ID
-                    (International Passport, Driver's License or National ID. This will be for verification purposes in
-                    the next step.
-                </div>
+    <div class="dashboard-container">
+        <!-- Logo -->
+        {% include "partials/header.html" %}
+
+        <!-- Flash messages -->
+        {% include 'partials/flash.html' %}
+
+        <!-- Wallet Info Bar -->
+        <div class="wallet-info-bar">
+            <span class="wallet-address-short">{{ wallet_data.wallet_address[:6] }}...{{ wallet_data.wallet_address[-4:] }}</span>
+        </div>
+
+        <!-- Welcome Card -->
+        <div class="welcome-card">
+            <span>Create Your Profile</span>
+        </div>
+
+        <!-- Info Card -->
+        <div class="warning-card">
+            <p>
+                Welcome, in order to proceed please provide us with some basic details about yourself. Please use
+                the same name that appears on your bank account. This name also has to match the name on your ID
+                (International Passport, Driver's License or National ID). This will be for verification purposes in
+                the next step.
+            </p>
+        </div>
+
+        <!-- Registration Form -->
+        <form role="form" action="{{ url_for("user.register") }}" method="POST" id="register-form">
+            {{ form.csrf_token }}
+
+            <div class="transaction-info-row" style="display: block; margin-bottom: 8px;">
+                <label for="firstNameInput" class="info-label" style="display: block; margin-bottom: 8px;">{{ form.first_name.description }}</label>
+                {{ form.first_name(class="form-input", id="firstNameInput", placeholder="First Name", required=True, style="width: 100%; padding: 14px 16px; font-size: 1rem; border: 1px solid rgba(0, 0, 0, 0.1); border-radius: 8px; background: white;") }}
             </div>
 
-            <!-- Registration Form -->
-            <form role="form"
-                  action="{{ url_for("user.register") }}"
-                  method="POST">
-                {{ form.csrf_token }}
-                <div class="form-group mb-2">
-                    <label>{{ form.first_name.description }}</label>
-                    {{ form.first_name(class="form-input p_input", id="firstNameInput", placeholder="First Name") }}
-                </div>
-                <div class="form-group mb-2">
-                    <label>{{ form.last_name.description }}</label>
-                    {{ form.last_name(class="form-input p_input", id="lastNameInput", placeholder="Last name") }}
-                </div>
-                <div class="form-group mb-2">
-                    <label>{{ form.email_address.description }}</label>
-                    {{ form.email_address(class="form-input p_input", id="emailAddress", placeholder="Email Address") }}
-                </div>
-                <div class="form-group mb-2">
-                    <label>{{ form.bank_account_number.description }}</label>
-                    {{ form.bank_account_number(class="form-input p_input", id="bankAccountNumber", placeholder="IBAN") }}
-                </div>
-                <div class="form-group mb-2">
-                    <label>{{ form.bank_number.description }}</label>
-                    {{ form.bank_number(class="form-input p_input", id="bankNumber", placeholder="BIC") }}
-                </div>
-                <div class="form-group mb-2">
-                    <label>{{ form.address_line_1.description }}</label>
-                    {{ form.address_line_1(class="form-input p_input", id="addressLine1", placeholder="Address") }}
-                </div>
-                <div class="form-group mb-2">
-                    <label>{{ form.address_line_2.description }}</label>
-                    {{ form.address_line_2(class="form-input p_input", id="addressLine2", placeholder="City") }}
-                </div>
-                <div class="form-group mb-2">
-                    <label>{{ form.country.description }}</label>
-                    {{ form.country(class="form-input form-select", id="country") }}
-                </div>
+            <div class="transaction-info-row" style="display: block; margin-bottom: 8px;">
+                <label for="lastNameInput" class="info-label" style="display: block; margin-bottom: 8px;">{{ form.last_name.description }}</label>
+                {{ form.last_name(class="form-input", id="lastNameInput", placeholder="Last Name", required=True, style="width: 100%; padding: 14px 16px; font-size: 1rem; border: 1px solid rgba(0, 0, 0, 0.1); border-radius: 8px; background: white;") }}
+            </div>
 
-                <div class="alert alert-info mt-3">
-                    <h5>Before you continue</h5>
-                    <p>
-                        By signing up to this service you are confirming that you are opening this account on your own behalf,
-                        and are not acting on behalf of any other person or entity. You are also confirming that the
-                        documentation you provide for verification purposes are not for anyone else but the person creating this
-                        account.
-                    </p>
-                </div>
+            <div class="transaction-info-row" style="display: block; margin-bottom: 8px;">
+                <label for="emailAddress" class="info-label" style="display: block; margin-bottom: 8px;">{{ form.email_address.description }}</label>
+                {{ form.email_address(class="form-input", id="emailAddress", placeholder="Email Address", required=True, style="width: 100%; padding: 14px 16px; font-size: 1rem; border: 1px solid rgba(0, 0, 0, 0.1); border-radius: 8px; background: white;") }}
+            </div>
 
-                <button type="submit" class="mt-4 action-button primary-button" id="submit-btn">
-                    Continue
-                </button>
-            </form>
-        </div>
+            <div class="transaction-info-row" style="display: block; margin-bottom: 8px;">
+                <label for="bankAccountNumber" class="info-label" style="display: block; margin-bottom: 8px;" id="bankAccountNumberDesc">{{ form.bank_account_number.description }}</label>
+                {{ form.bank_account_number(class="form-input", id="bankAccountNumber", placeholder="IBAN", required=True, style="width: 100%; padding: 14px 16px; font-size: 1rem; border: 1px solid rgba(0, 0, 0, 0.1); border-radius: 8px; background: white;") }}
+            </div>
+
+            <div class="transaction-info-row" style="display: block; margin-bottom: 8px;">
+                <label for="bankNumber" class="info-label" style="display: block; margin-bottom: 8px;" id="bankNumberDesc">{{ form.bank_number.description }}</label>
+                {{ form.bank_number(class="form-input", id="bankNumber", placeholder="BIC", required=True, style="width: 100%; padding: 14px 16px; font-size: 1rem; border: 1px solid rgba(0, 0, 0, 0.1); border-radius: 8px; background: white;") }}
+            </div>
+
+            <div class="transaction-info-row" style="display: block; margin-bottom: 8px;">
+                <label for="addressLine1" class="info-label" style="display: block; margin-bottom: 8px;">{{ form.address_line_1.description }}</label>
+                {{ form.address_line_1(class="form-input", id="addressLine1", placeholder="Address", required=True, style="width: 100%; padding: 14px 16px; font-size: 1rem; border: 1px solid rgba(0, 0, 0, 0.1); border-radius: 8px; background: white;") }}
+            </div>
+
+            <div class="transaction-info-row" style="display: block; margin-bottom: 8px;">
+                <label for="addressLine2" class="info-label" style="display: block; margin-bottom: 8px;">{{ form.address_line_2.description }}</label>
+                {{ form.address_line_2(class="form-input", id="addressLine2", placeholder="City", required=True, style="width: 100%; padding: 14px 16px; font-size: 1rem; border: 1px solid rgba(0, 0, 0, 0.1); border-radius: 8px; background: white;") }}
+            </div>
+
+            <div class="transaction-info-row" style="display: block; margin-bottom: 8px;">
+                <label for="country" class="info-label" style="display: block; margin-bottom: 8px;">{{ form.country.description }}</label>
+                {{ form.country(class="form-input", id="country", required=True, style="width: 100%; padding: 14px 16px; font-size: 1rem; border: 1px solid rgba(0, 0, 0, 0.1); border-radius: 8px; background: white;") }}
+            </div>
+
+            <div class="warning-card">
+                <p><strong>Before you continue</strong></p>
+                <p>
+                    By signing up to this service you are confirming that you are opening this account on your own behalf,
+                    and are not acting on behalf of any other person or entity. You are also confirming that the
+                    documentation you provide for verification purposes are not for anyone else but the person creating this
+                    account.
+                </p>
+            </div>
+
+            <button type="submit" class="dashboard-action-btn full-width" id="submit-btn">
+                Continue
+            </button>
+        </form>
     </div>
 {% endblock %}
 {% block additional_javascript %}
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            const form = document.querySelector('form[role="form"]');
-            const submitBtn = form.querySelector('button[type="submit"]');
+            const form = document.getElementById('register-form');
+            const submitBtn = document.getElementById('submit-btn');
             const ibanInput = document.getElementById('bankAccountNumber');
             const bankNumberInput = document.getElementById('bankNumber');
             const bankNumberDesc = document.getElementById('bankNumberDesc');
             const bankAccountNumberDesc = document.getElementById('bankAccountNumberDesc');
 
-            form.addEventListener('submit', function () {
-                submitBtn.disabled = true;
-                submitBtn.textContent = 'processing...';
-            });
+            // Disable button on form submit
+            if (form && submitBtn) {
+                form.addEventListener('submit', function () {
+                    submitBtn.disabled = true;
+                    submitBtn.style.cursor = 'not-allowed';
+                    submitBtn.style.opacity = '0.6';
+                    submitBtn.textContent = 'Processing...';
+                });
+            }
 
+            // IBAN validation and BIC lookup
             ibanInput.addEventListener('input', function () {
                 if (ibanInput.value.trim()) {
                     bankNumberInput.value = 'Deriving Bank Number';
@@ -110,11 +136,10 @@
                                 }
                                 if (bankAccountNumberDesc) bankAccountNumberDesc.textContent = data.message || '{{ form.bank_account_number.description }}';
                             }
-
                         })
                         .catch(error => {
                             bankNumberInput.value = '';
-                            if (bankAccountNumberDesc) bankAccountNumberDesc.textContent = data.message ||  '{{ form.bank_account_number.description }}';
+                            if (bankAccountNumberDesc) bankAccountNumberDesc.textContent = '{{ form.bank_account_number.description }}';
                             console.error('Error:', error);
                         });
                 } else {

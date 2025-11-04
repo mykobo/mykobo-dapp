@@ -1,38 +1,37 @@
 {% extends "layouts/authenticated.html" %}
 {% block title %} Let's Get Started {% endblock %}
 {% block content %}
-    <div id="app">
-        <div class="dashboard-container">
-            <!-- Logo -->
-            {% include "partials/header.html" %}
+    <div class="dashboard-container">
+        <!-- Logo -->
+        {% include "partials/header.html" %}
 
-            <!-- Flash messages -->
-            {% include 'partials/flash.html' %}
+        <!-- Flash messages -->
+        {% include 'partials/flash.html' %}
 
-            <!-- Wallet Info Bar -->
-            <div class="wallet-info-bar">
-                <span class="wallet-address-short">{{ wallet_data.wallet_address[:6] }}...{{ wallet_data.wallet_address[-4:] }}</span>
-            </div>
-
-            <!-- Welcome Card -->
-            <div class="welcome-card">
-                <span>Welcome! Let's get you set up</span>
-            </div>
-
-            <!-- Registration Form -->
-            <form method="POST" action="{{ url_for('user.lobby') }}" id="register-form">
-                {{ form.csrf_token }}
-
-                <div class="transaction-info-row" style="display: block; margin-bottom: 8px;">
-                    <label for="email_address" class="info-label" style="display: block; margin-bottom: 8px;">{{ form.email_address.description }}</label>
-                    {{ form.email_address(class="form-input", id="email_address", placeholder="your.email@example.com", required=True, style="width: 100%; padding: 14px 16px; font-size: 1rem; border: 1px solid rgba(0, 0, 0, 0.1); border-radius: 8px; background: white;") }}
-                </div>
-
-                <button type="submit" class="dashboard-action-btn full-width" id="submit-btn">
-                    Continue
-                </button>
-            </form>
+        <!-- Wallet Info Bar -->
+        <div class="wallet-info-bar">
+            <span class="wallet-address-short">{{ wallet_data.wallet_address[:6] }}...{{ wallet_data.wallet_address[-4:] }}</span>
         </div>
+
+        <!-- Welcome Card -->
+        <div class="welcome-card">
+            <span>Welcome! Let's get you set up</span>
+        </div>
+
+        <!-- Registration Form -->
+        <form method="POST" action="{{ url_for('user.lobby') }}" id="register-form">
+            {{ form.csrf_token }}
+
+            <div class="transaction-info-row" style="display: block; margin-bottom: 8px;">
+                <label for="email_address" class="info-label"
+                       style="display: block; margin-bottom: 8px;">{{ form.email_address.description }}</label>
+                {{ form.email_address(class="form-input", id="email_address", placeholder="your.email@example.com", required=True, style="width: 100%; padding: 14px 16px; font-size: 1rem; border: 1px solid rgba(0, 0, 0, 0.1); border-radius: 8px; background: white;") }}
+            </div>
+
+            <button type="submit" class="dashboard-action-btn full-width" id="submit-btn">
+                Continue
+            </button>
+        </form>
     </div>
 {% endblock %}
 {% block additional_javascript %}
@@ -42,7 +41,7 @@
         const submitBtn = document.getElementById('submit-btn');
 
         if (form && submitBtn) {
-            form.addEventListener('submit', function(e) {
+            form.addEventListener('submit', function (e) {
                 // Disable the button
                 submitBtn.disabled = true;
                 submitBtn.style.cursor = 'not-allowed';
