@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.5.3 (2025-11-04)
+
+### Bug Fixes
+
+- Styling updates
+  ([`800d286`](https://github.com/mykobo/mykobo-dapp/commit/800d28666590d84d0cfc58a400782de23ac81de6))
+
+
 ## v1.5.2 (2025-11-03)
 
 ### Bug Fixes
