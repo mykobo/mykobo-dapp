@@ -12,6 +12,9 @@
         <!-- Wallet Info Bar -->
         <div class="wallet-info-bar">
             <span class="wallet-address-short">{{ wallet_data.wallet_address[:6] }}...{{ wallet_data.wallet_address[-4:] }}</span>
+            <button type="button" class="disconnect-link" onclick="clearAuthToken('{{ url_for("auth.logout") }}')">
+                Disconnect Wallet
+            </button>
         </div>
 
         <!-- Welcome Card -->
@@ -90,6 +93,7 @@
     </div>
 {% endblock %}
 {% block additional_javascript %}
+    <script src="{{ url_for('static', filename='aux/common.js') }}"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             const form = document.getElementById('register-form');

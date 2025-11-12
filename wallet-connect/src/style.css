@@ -973,16 +973,38 @@ body {
 
 @media (max-width: 768px) {
   body {
-    padding: 8px;
+    padding: 0;
+    align-items: stretch;
+    min-height: 100vh;
+  }
+
+  #app {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
   }
 
   .wallet-connect-container {
     max-width: 100%;
+    height: 100%;
+    align-items: stretch;
+    justify-content: stretch;
   }
 
   .wallet-connect-card {
-    padding: 24px 16px;
-    border-radius: 16px;
+    padding: 20px 16px;
+    border-radius: 0;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    max-width: 100%;
+  }
+
+  .dashboard-container {
+    padding: 0 8px;
+    max-width: 100%;
+    gap: 12px;
+    height: 100%;
   }
 
   .header .logo {
@@ -992,12 +1014,6 @@ body {
   .wallet-button {
     padding: 14px 20px;
     font-size: 0.95rem;
-  }
-
-  .dashboard-container {
-    padding: 0 8px;
-    max-width: 100%;
-    gap: 12px;
   }
 
   .balance-cards {
