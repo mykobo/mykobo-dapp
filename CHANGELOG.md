@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.5.6 (2025-11-12)
+
+### Bug Fixes
+
+- Styling, trying to make screen bigger
+  ([`23c9f1e`](https://github.com/mykobo/mykobo-dapp/commit/23c9f1eed54047dccc4489a588b90185c286200a))
+
+
 ## v1.5.5 (2025-11-04)
 
 ### Bug Fixes
