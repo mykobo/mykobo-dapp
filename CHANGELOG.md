@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.5.9 (2025-11-13)
+
+### Bug Fixes
+
+- Move the page higher
+  ([`17ec866`](https://github.com/mykobo/mykobo-dapp/commit/17ec8669ebefa466aaba2b25b48c7bd40c788a40))
+
+
 ## v1.5.8 (2025-11-13)
 
 ### Bug Fixes
