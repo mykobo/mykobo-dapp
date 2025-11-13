@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.5.10 (2025-11-13)
+
+### Bug Fixes
+
+- Make everything 100% wide
+  ([`a8cee9a`](https://github.com/mykobo/mykobo-dapp/commit/a8cee9a66cd4c43d9df5928806b3920aefd00309))
+
+
 ## v1.5.9 (2025-11-13)
 
 ### Bug Fixes
