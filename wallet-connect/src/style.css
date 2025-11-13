@@ -21,9 +21,10 @@ body {
   background: linear-gradient(180deg, #7A7A7A 0%, #3E3E3E 100%);
   color: #ffffff;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   padding: 20px;
+  padding-top: 80px;
 }
 
 #app {
@@ -352,7 +353,7 @@ body {
 .dashboard-container {
   width: 100%;
   max-width: 800px;
-  margin: 0 auto;
+  margin: 40px auto 0;
   display: flex;
   flex-direction: column;
   gap: 16px;
