@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.5.7 (2025-11-13)
+
+### Bug Fixes
+
+- Make context bigger
+  ([`fc4797c`](https://github.com/mykobo/mykobo-dapp/commit/fc4797c3f1f241f1ca06eeb8c570448b33b650b7))
+
+
 ## v1.5.6 (2025-11-12)
 
 ### Bug Fixes
