@@ -37,7 +37,7 @@ body {
 
 .wallet-connect-container {
   width: 100%;
-  max-width: 800px;
+  max-width: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -214,7 +214,7 @@ body {
 
 /* Lobby/Authorized Screen Styles */
 .lobby-container {
-  max-width: 600px;
+  max-width: 100%;
   gap: 15px;
 }
 
@@ -352,7 +352,7 @@ body {
 /* Dashboard Styles */
 .dashboard-container {
   width: 100%;
-  max-width: 800px;
+  max-width: 100%;
   margin: 40px auto 0;
   display: flex;
   flex-direction: column;
